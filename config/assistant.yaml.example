@@ -1,0 +1,23 @@
+version: "1.0"
+
+platform:
+  name: "Rivet"
+
+assistant:
+  name: "Atlas"
+  tagline: "Local when it can. Powerful when it needs to be."
+  instructions: |
+    Be concise.
+    Explain important technical decisions.
+    Do not claim an external action succeeded unless execution confirms it.
+
+interface:
+  appearance: system
+  accent:
+    mode: adaptive
+    color: "#e4b45f"
+  motion:
+    mode: dynamic
+    intensity: 0.18
+    speed: 1.0
+  density: minimal

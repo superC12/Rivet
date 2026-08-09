@@ -1,0 +1,19 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/test/
+config/*.tmp
+
+# Live configuration is generated from the *.example templates on first
+# start and is rewritten whenever settings are saved. Tracking it would
+# mean a local onboarding run edits the defaults that ship to everyone.
+config/assistant.yaml
+config/rivet.yaml

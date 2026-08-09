@@ -1,0 +1,37 @@
+[Unit]
+Description=Rivet AI orchestration dashboard
+Documentation=file:/opt/rivet/current/README.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=rivet
+Group=rivet
+WorkingDirectory=/opt/rivet/current
+Environment=RIVET_CONFIG_DIR=/etc/rivet
+Environment=RIVET_DATA_DIR=/var/lib/rivet
+EnvironmentFile=-/etc/rivet/rivet.env
+ExecStart=/opt/rivet/current/scripts/rivet-server
+Restart=on-failure
+RestartSec=4
+TimeoutStopSec=20
+KillSignal=SIGINT
+UMask=0077
+
+# Keep the service contained while allowing config edits, SQLite, HTTP, and WoL.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/etc/rivet /var/lib/rivet
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

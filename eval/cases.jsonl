@@ -1,0 +1,48 @@
+{"text": "what's the capital of Australia", "label": "LOCAL"}
+{"text": "how do you spell necessary", "label": "LOCAL"}
+{"text": "give me three names for a black cat", "label": "LOCAL"}
+{"text": "what does TTL stand for in networking", "label": "LOCAL"}
+{"text": "convert 180 pounds to kilograms", "label": "LOCAL"}
+{"text": "make this more polite: I need the report today", "label": "LOCAL"}
+{"text": "summarise this in one sentence: the board met on Tuesday and approved the budget with minor amendments to the travel line", "label": "LOCAL"}
+{"text": "what's a good temperature to roast chicken at", "label": "LOCAL"}
+{"text": "who wrote Slaughterhouse-Five", "label": "LOCAL"}
+{"text": "what day of the week was 1 January 2020", "label": "LOCAL"}
+{"text": "turn this into bullet points: we need milk, bread and eggs before Friday", "label": "LOCAL"}
+{"text": "what's the difference between RAM and storage", "label": "LOCAL"}
+{"text": "translate good morning into Spanish", "label": "LOCAL"}
+{"text": "how many ounces in a litre", "label": "LOCAL"}
+{"text": "suggest a subject line for an email about a delayed shipment", "label": "LOCAL"}
+{"text": "what is the boiling point of water in Fahrenheit", "label": "LOCAL"}
+{"text": "explain what a VPN does in two sentences", "label": "LOCAL"}
+{"text": "my docker container exits immediately with code 137, what's going on", "label": "ESCALATE"}
+{"text": "write a Python function that merges overlapping intervals and handles the empty case", "label": "ESCALATE"}
+{"text": "compare Postgres and SQLite for a single-user app that needs full-text search and might later sync to a server", "label": "ESCALATE"}
+{"text": "if I put 400 a month into an index fund at 7 percent for 18 years, what do I end up with and how much of that is contributions", "label": "ESCALATE"}
+{"text": "review this contract clause and tell me what my exposure is if the vendor misses the deadline", "label": "ESCALATE"}
+{"text": "design a schema for tracking recurring tasks with exceptions and skipped occurrences", "label": "ESCALATE"}
+{"text": "why does my n8n webhook return 200 but the downstream node never fires", "label": "ESCALATE"}
+{"text": "prove that the sum of the first n odd numbers equals n squared", "label": "ESCALATE"}
+{"text": "I have three overlapping deadlines and one contractor, work out an order that minimises the risk of missing the hard one", "label": "ESCALATE"}
+{"text": "explain the tradeoffs between quantisation formats for running a 3B model on 8GB of VRAM", "label": "ESCALATE"}
+{"text": "my back has hurt for three weeks and now my left leg is tingling, what should I do", "label": "ESCALATE"}
+{"text": "refactor this class so the retry logic is testable without sleeping in the tests", "label": "ESCALATE"}
+{"text": "walk me through setting up mutual TLS between two services behind a reverse proxy", "label": "ESCALATE"}
+{"text": "what's 17 percent of 340", "label": "LOCAL", "note": "borderline - single-step arithmetic; relabel ESCALATE if the 3B gets it wrong in practice"}
+{"text": "explain recursion", "label": "LOCAL", "note": "borderline - short conceptual explanation, no depth demanded"}
+{"text": "write a haiku about a broken printer", "label": "LOCAL", "note": "borderline - creative but short and low-stakes"}
+{"text": "what's the best way to learn Rust", "label": "LOCAL", "note": "borderline - opinion-shaped, no hard correctness bar"}
+{"text": "is it cheaper to run this on a VPS or at home", "label": "ESCALATE", "note": "borderline - needs assumptions and comparison, easy to answer glibly"}
+{"text": "add buy milk to my shopping list", "label": "ACTION"}
+{"text": "create a task called renew the domain", "label": "ACTION"}
+{"text": "schedule a meeting with Sam for Thursday", "label": "ACTION"}
+{"text": "remind me to take the bins out tomorrow morning", "label": "ACTION"}
+{"text": "turn on the kitchen lights", "label": "ACTION"}
+{"text": "send an email to the landlord about the boiler", "label": "ACTION"}
+{"text": "delete the calendar event on Friday", "label": "ACTION"}
+{"text": "add a note about the router password", "label": "ACTION"}
+{"text": "how do I create a task in n8n", "label": "ESCALATE", "note": "action-shaped question; must not fire the gateway"}
+{"text": "what happens if I delete an event from a shared calendar", "label": "LOCAL", "note": "action-shaped question; must not fire the gateway"}
+{"text": "can you send email from a self-hosted server without it going to spam", "label": "ESCALATE", "note": "action-shaped question; must not fire the gateway"}
+{"text": "explain how reminders work on Android", "label": "LOCAL", "note": "action-shaped question; must not fire the gateway"}
+{"text": "why would adding a task to a shared list fail silently", "label": "ESCALATE", "note": "action-shaped question; must not fire the gateway"}

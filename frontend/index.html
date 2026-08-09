@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08080a">
+  <meta name="description" content="A lightweight home for your AI.">
+  <title>Rivet</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/chat.css">
+  <link rel="stylesheet" href="/static/css/motion.css">
+  <link rel="stylesheet" href="/static/css/settings.css">
+</head>
+<body>
+  <a class="skip-link" href="#conversation">Skip to conversation</a>
+  <canvas id="atmosphere" aria-hidden="true"></canvas>
+  <div class="readability-mask" aria-hidden="true"></div>
+
+  <div class="app-shell" id="app" data-motion="dynamic" data-state="idle">
+    <button class="scrim" id="scrim" aria-label="Close navigation" tabindex="-1"></button>
+    <aside class="sidebar" id="sidebar" aria-label="Conversation navigation">
+      <div class="sidebar-top">
+        <button class="brand-mark" id="collapse-sidebar" aria-label="Collapse sidebar" data-tooltip="Collapse the conversation sidebar to leave more room for the current session."><span class="brand-initial" id="platform-mark">R</span><span class="brand-tail" id="platform-wordmark">I V E T</span></button>
+        <button class="icon-button close-mobile" id="close-sidebar" aria-label="Close navigation">×</button>
+      </div>
+      <button class="new-chat" id="new-chat"><span class="new-chat-icon">＋</span><span class="nav-label">New chat</span></button>
+      <nav class="chat-nav" aria-label="Chats">
+        <div class="nav-heading nav-label">Chats</div>
+        <div id="conversation-list" class="conversation-list"></div>
+      </nav>
+      <div class="sidebar-links">
+        <button class="side-link" data-panel="compute" data-tooltip="See the machines and model providers Rivet can use."><span class="side-icon">⌁</span><span class="nav-label">Compute</span></button>
+        <button class="side-link" data-panel="routing" data-tooltip="Control how requests move between local, remote, and cloud models."><span class="side-icon">↗</span><span class="nav-label">Routes</span></button>
+        <button class="side-link" data-panel="assistant" data-tooltip="Change identity, connections, routing, privacy, and appearance."><span class="side-icon">⚙</span><span class="nav-label">Settings</span></button>
+      </div>
+    </aside>
+
+    <main class="main-canvas">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-button menu-button" id="open-sidebar" aria-label="Open navigation">☰</button>
+        </div>
+        <div class="header-status">
+          <button class="motion-status" id="motion-status" aria-label="Change background atmosphere"><span class="spark">✦</span><span id="motion-label">Dynamic</span></button>
+          <button class="connection-status" id="connection-status" type="button" aria-label="Connection diagnostics" aria-expanded="false" aria-controls="connection-popover"><i id="connection-dot"></i><span id="connection-label">Connecting</span></button>
+          <div class="connection-popover" id="connection-popover" hidden>
+            <div class="diagnostic-head"><div><span>RUNTIME</span><strong>Connection diagnostics</strong></div><button id="refresh-diagnostics" type="button" aria-label="Refresh diagnostics">↻</button></div>
+            <div class="diagnostic-list" id="diagnostic-list"></div>
+            <p class="diagnostic-foot">Transport · HTTP/SSE</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="conversation" id="conversation" aria-live="polite" aria-label="Conversation">
+        <div class="empty-state" id="empty-state">
+          <button class="canvas-control" id="open-compute-overview" type="button">
+            <span class="canvas-control-icon" aria-hidden="true"><svg viewBox="0 0 18 18"><circle cx="4" cy="9" r="2"/><circle cx="14" cy="4" r="2"/><circle cx="14" cy="14" r="2"/><path d="M6 9h3m0 0 3.5-4M9 9l3.5 4"/></svg></span>
+            <span class="canvas-control-copy"><span>CONTROL PATH</span><strong id="canvas-summary">Inspecting available engines…</strong></span>
+            <span class="canvas-control-action">View compute <b>→</b></span>
+          </button>
+          <div class="action-triggers" id="action-triggers" aria-label="Developer action triggers"></div>
+        </div>
+        <div class="messages" id="messages"></div>
+      </section>
+
+      <div class="composer-zone">
+        <div class="system-activity" id="system-activity" role="status"></div>
+        <form class="composer" id="composer">
+          <textarea id="message-input" rows="1" maxlength="200000" aria-label="Message your assistant" placeholder="Describe a task or ask a question…"></textarea>
+          <div class="composer-controls">
+            <kbd class="composer-shortcut" id="composer-shortcut">Ctrl ↵</kbd>
+            <div class="route-control" id="route-control">
+              <select class="sr-only" id="route-mode" aria-label="Route selection"><option value="auto">Auto</option></select>
+              <button class="route-trigger" id="route-trigger" type="button" aria-haspopup="menu" aria-expanded="false" data-tooltip="Choose an active execution route or link another provider."><span id="route-icon" aria-hidden="true"></span><span class="route-chevron">⌄</span></button>
+              <div class="route-menu" id="route-menu" role="menu" hidden></div>
+            </div>
+            <button class="send-button" id="send-button" type="submit" aria-label="Send message" disabled><span>↑</span></button>
+          </div>
+        </form>
+        <div class="composer-meta">
+          <p class="composer-note">Route, model, and execution trace are recorded with every response.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <section class="onboarding" id="onboarding" aria-label="Rivet setup" hidden>
+    <canvas id="onboarding-atmosphere" aria-hidden="true"></canvas>
+    <div class="onboarding-card">
+      <div class="onboarding-progress" id="onboarding-progress" aria-label="Setup progress"></div>
+      <div class="onboarding-step active" data-step="1">
+        <p class="onboarding-brand" id="onboarding-platform">RIVET</p>
+        <h1 id="onboarding-welcome">Welcome to Rivet.</h1>
+        <p class="lead">A lightweight home for your AI.</p>
+        <p class="step-question">What should we call your assistant?</p>
+        <label class="large-field"><span class="sr-only">Assistant name</span><input id="setup-name" value="Atlas" autocomplete="off" maxlength="32"></label>
+        <div class="onboarding-actions end"><button class="text-button next-step">Continue <span>→</span></button></div>
+      </div>
+      <div class="onboarding-step" data-step="2">
+        <p class="onboarding-kicker">02 — CHARACTER</p>
+        <h1>Give it some character.</h1>
+        <p class="step-question">How should your assistant behave?</p>
+        <label class="large-field textarea-field"><span class="sr-only">Assistant instructions</span><textarea id="setup-instructions" rows="5">Be concise.
+Explain important technical decisions.
+Don't pretend actions succeeded.</textarea></label>
+        <p class="field-note">You can change this anytime.</p>
+        <div class="onboarding-actions"><button class="text-button previous-step">← Back</button><button class="text-button next-step">Continue →</button></div>
+      </div>
+      <div class="onboarding-step" data-step="3">
+        <p class="onboarding-kicker">03 — COMPUTE</p>
+        <h1>Where can Rivet think?</h1>
+        <div class="discovery-list">
+          <div class="discovery-item"><i id="ollama-discovery"></i><div><strong>Local models</strong><span id="ollama-discovery-label">Checking for Ollama…</span></div></div>
+          <div class="discovery-item"><i></i><div><strong>OpenRouter</strong><span>Add an API key later</span></div></div>
+          <div class="discovery-item"><i></i><div><strong>Remote computer</strong><span>Configure later with Tailscale</span></div></div>
+        </div>
+        <p class="field-note">One working source is enough. You can add more later.</p>
+        <div class="onboarding-actions"><button class="text-button previous-step">← Back</button><button class="text-button next-step">Continue →</button></div>
+      </div>
+      <div class="onboarding-step" data-step="4">
+        <p class="onboarding-kicker">04 — MODELS</p>
+        <h1>Choose how it thinks.</h1>
+        <div id="setup-models" class="setup-models"><div class="setup-model selected"><i></i><div><strong>Auto Route</strong><span>Recommended · Rivet chooses the right source</span></div><b>✓</b></div></div>
+        <div class="onboarding-actions"><button class="text-button previous-step">← Back</button><button class="text-button next-step">Activate →</button></div>
+      </div>
+      <div class="onboarding-step activation" data-step="5">
+        <p class="activation-name" id="activation-name">A T L A S</p>
+        <h1>is ready.</h1>
+        <p id="activation-tagline">Local when it can.<br>Powerful when it needs to be.</p>
+        <button class="start-button" id="finish-onboarding">Start <span>→</span></button>
+      </div>
+    </div>
+  </section>
+
+  <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
+    <div class="settings-shell">
+      <aside class="settings-nav">
+        <div class="settings-nav-header"><span id="settings-title">Settings</span><button id="close-settings-mobile" aria-label="Close settings">×</button></div>
+        <button class="active" data-settings-section="assistant">Assistant</button>
+        <button data-settings-section="compute">Compute</button>
+        <button data-settings-section="routing">Routing</button>
+        <button data-settings-section="connections">Connections</button>
+        <button data-settings-section="appearance">Appearance</button>
+        <button data-settings-section="advanced">Advanced</button>
+        <button data-settings-section="about">About</button>
+      </aside>
+      <div class="settings-content">
+        <button class="dialog-close" id="close-settings" aria-label="Close settings">×</button>
+        <div class="settings-scroll">
+          <section class="settings-section active" data-section="assistant">
+          <p class="settings-kicker">IDENTITY</p><h2>Assistant</h2><p class="section-intro">This is the identity you interact with. It stays separate from Rivet's infrastructure.</p>
+          <label>Name<input id="settings-name" maxlength="32"></label>
+          <label>Tagline<input id="settings-tagline" maxlength="120"></label>
+          <label>Instructions<textarea id="settings-instructions" rows="7"></textarea></label>
+        </section>
+        <section class="settings-section" data-section="compute">
+          <p class="settings-kicker">HARDWARE</p><h2>Compute</h2><p class="section-intro">Nodes are machines. Providers are the inference services running on them.</p>
+          <div class="settings-execution-overview">
+            <div class="matrix-heading"><span>ROUTING &amp; EXECUTION</span><strong id="matrix-summary">Inspecting available engines…</strong></div>
+            <div class="execution-matrix" id="execution-matrix" aria-label="Available execution engines"></div>
+          </div>
+          <div id="compute-list" class="compute-list"></div>
+        </section>
+        <section class="settings-section" data-section="routing">
+          <p class="settings-kicker">DECISIONS</p><h2>Routing</h2><p class="section-intro">Choose where requests may run. Local-only content never leaves your configured nodes.</p>
+          <label>Strategy<select id="settings-strategy"><option value="auto">Auto</option><option value="local_only">Local only</option><option value="cloud">Cloud</option></select></label>
+          <label class="toggle-row"><span><b>Prefer local</b><small>Use local compute when it is capable.</small></span><input type="checkbox" id="settings-prefer-local"></label>
+          <label class="toggle-row"><span><b>Session affinity</b><small>Keep follow-up turns on the same model.</small></span><input type="checkbox" id="settings-affinity"></label>
+          <label class="toggle-row"><span><b>Local-only privacy</b><small>Never send message content to cloud providers.</small></span><input type="checkbox" id="settings-local-only"></label>
+        </section>
+        <section class="settings-section" data-section="connections">
+          <p class="settings-kicker">SERVICES</p><h2>Connections</h2><p class="section-intro">Secrets stay in your environment and are never returned here.</p>
+          <div id="connections-list" class="connection-list"></div>
+          <div class="manual-provider">
+            <div class="manual-provider-head">
+              <div><h3>Manual connections</h3><p>Connect by address when discovery cannot see a service.</p></div>
+              <button id="show-manual-provider" type="button" aria-expanded="false" aria-controls="manual-provider-form">＋ Add manually</button>
+            </div>
+            <div class="manual-provider-form" id="manual-provider-form" hidden>
+              <div class="manual-provider-grid">
+                <label>Provider type<select id="manual-provider-type"><option value="ollama">Ollama</option><option value="openai_compatible">OpenAI-compatible API</option><option value="openrouter">OpenRouter</option></select></label>
+                <label>Connection name<input id="manual-provider-name" maxlength="48" placeholder="Homelab Ollama" autocomplete="off" required></label>
+                <label id="manual-provider-endpoint-field" class="manual-provider-wide">Server address<input id="manual-provider-endpoint" type="url" placeholder="http://192.168.1.20:11434" autocomplete="off" spellcheck="false"><small>Enter the service root without <code>/v1</code>.</small></label>
+                <label id="manual-provider-location-field">Runs on<select id="manual-provider-location"><option value="local">This server or local network</option><option value="remote">Remote server / Tailscale</option><option value="cloud">Cloud service</option></select></label>
+                <label id="manual-provider-key-field">API key environment variable<input id="manual-provider-key-env" maxlength="64" pattern="[A-Z_][A-Z0-9_]*" placeholder="OPENAI_COMPATIBLE_API_KEY" autocomplete="off" spellcheck="false"><small>The variable name only—never the key itself.</small></label>
+              </div>
+              <p class="manual-provider-status" id="manual-provider-status" role="status"></p>
+              <div class="manual-provider-actions"><button id="cancel-manual-provider" type="button">Cancel</button><button id="save-manual-provider" type="button">Save connection</button></div>
+            </div>
+          </div>
+          <div class="action-gateway">
+            <h3>n8n Actions Gateway</h3>
+            <p class="section-intro">Rivet reports an action as done only when n8n confirms it. A webhook that replies before its workflow runs is reported as unconfirmed, not as success.</p>
+            <label class="toggle-row"><span><b>Enable actions</b><small>Send action requests to n8n.</small></span><input type="checkbox" id="settings-n8n-enabled"></label>
+            <label>Webhook URL <small id="n8n-configured-note"></small><input id="settings-n8n-endpoint" type="url" placeholder="https://n8n.example/webhook/rivet" autocomplete="off" spellcheck="false"></label>
+            <p class="field-note">The URL carries its own authorisation, so it is stored on the server and never returned here. Leave it blank to keep the current one. Set <code>N8N_ACTION_KEY</code> in <code>.env</code> to sign requests.</p>
+          </div>
+        </section>
+        <section class="settings-section" data-section="appearance">
+          <p class="settings-kicker">INTERFACE</p><h2>Appearance</h2>
+          <label>Theme<select id="settings-theme"><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
+          <label>Accent behavior<select id="settings-accent-mode"><option value="adaptive">Adaptive to the task</option><option value="fixed">Fixed color</option></select></label>
+          <div class="accent-editor" id="accent-editor">
+            <div class="accent-editor-head"><span>Base accent</span><input id="settings-accent-picker" type="color" value="#e4b45f" aria-label="Accent color"></div>
+            <div class="accent-presets" aria-label="Accent presets">
+              <button type="button" data-accent-preset="#e4b45f" style="--swatch:#e4b45f"><i></i>Amber</button>
+              <button type="button" data-accent-preset="#ff6b6b" style="--swatch:#ff6b6b"><i></i>Coral</button>
+              <button type="button" data-accent-preset="#5fd39f" style="--swatch:#5fd39f"><i></i>Mint</button>
+              <button type="button" data-accent-preset="#63a7ff" style="--swatch:#63a7ff"><i></i>Azure</button>
+              <button type="button" data-accent-preset="#a88cff" style="--swatch:#a88cff"><i></i>Violet</button>
+            </div>
+            <div class="rgb-fields" aria-label="Custom RGB accent">
+              <label>R<input id="settings-accent-r" type="number" min="0" max="255" value="228"></label>
+              <label>G<input id="settings-accent-g" type="number" min="0" max="255" value="180"></label>
+              <label>B<input id="settings-accent-b" type="number" min="0" max="255" value="95"></label>
+            </div>
+            <p class="field-note">Adaptive uses coral for creative work, mint for math and science, blue for code, violet for analysis, and amber for actions. The base color handles everything else.</p>
+          </div>
+          <label>Background<select id="settings-motion"><option value="static">Static</option><option value="ambient">Ambient</option><option value="dynamic">Dynamic</option></select></label>
+          <label>Intensity <output id="intensity-output">18%</output><input id="settings-intensity" type="range" min="0" max="0.3" step="0.01"></label>
+          <label>Motion speed <output id="speed-output">1.0×</output><input id="settings-speed" type="range" min="0.3" max="1.6" step="0.1"></label>
+        </section>
+        <section class="settings-section" data-section="advanced">
+          <p class="settings-kicker">SYSTEM</p><h2>Advanced</h2>
+          <div class="info-rows"><div><span>API</span><code>/api</code></div><div><span>Health</span><code>/health</code></div><div><span>Database</span><code>data/rivet.db</code></div><div><span>Configuration</span><code>config/*.yaml</code></div></div>
+        </section>
+          <section class="settings-section about-section" data-section="about">
+          <p class="about-mark" id="about-mark">R</p><h2 id="about-platform">Rivet</h2><p id="about-version">Version —</p><p class="about-copy">Lightweight AI orchestration.<br>One assistant. Any compute.</p>
+          </section>
+        </div>
+        <footer class="settings-footer"><span id="settings-saved"></span><button id="save-settings">Save changes</button></footer>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="context-tooltip" id="context-tooltip" role="tooltip" hidden></div>
+  <template id="message-template">
+    <article class="message-pair"><div class="user-message"></div><div class="assistant-message"><div class="assistant-content"></div><button class="trace-toggle" hidden><i></i><span>Executed 0 steps</span><b>⌄</b></button><div class="trace-panel"></div><div class="telemetry"></div></div></article>
+  </template>
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

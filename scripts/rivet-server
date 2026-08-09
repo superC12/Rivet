@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+set -eu
+
+RIVET_HOST="${RIVET_HOST:-127.0.0.1}"
+RIVET_PORT="${RIVET_PORT:-8080}"
+
+exec /opt/rivet/venv/bin/uvicorn backend.main:app \
+  --app-dir /opt/rivet/current \
+  --host "$RIVET_HOST" \
+  --port "$RIVET_PORT" \
+  --proxy-headers

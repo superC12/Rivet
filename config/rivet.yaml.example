@@ -1,0 +1,51 @@
+router:
+  strategy: auto
+  engine: builtin
+  prefer_local: true
+  fallback: openrouter-main
+  privacy_mode: standard
+  session_affinity: true
+
+  classifier:
+    # heuristic - deterministic patterns, needs nothing installed.
+    # dispatch  - asks a small local model instead. Score it with
+    #             `python eval/run_eval.py --mode dispatch` first.
+    mode: heuristic
+    endpoint: http://127.0.0.1:11434
+    model: administrator-selected-classifier
+    timeout_s: 5.0
+    # Where an unreadable classification lands. ESCALATE fails upward:
+    # a slightly larger bill beats a confidently wrong answer. Set LOCAL
+    # to invert that trade.
+    fallback_lane: ESCALATE
+
+providers:
+  local-ollama:
+    type: ollama
+    node: homelab
+    endpoint: http://127.0.0.1:11434
+
+  openrouter-main:
+    type: openrouter
+    model: administrator-selected-cloud-model
+
+nodes:
+  homelab:
+    type: local
+    display_name: Homelab
+    always_on: true
+
+actions:
+  # Rivet reports an action as done only when the gateway confirms it.
+  # The webhook URL carries its own authorisation, so it is treated as a
+  # credential and is never returned through the API.
+  n8n:
+    enabled: false
+    endpoint: ""
+    timeout_s: 30.0
+
+onboarding:
+  complete: false
+
+logging:
+  verbose: false
