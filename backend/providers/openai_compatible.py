@@ -6,6 +6,7 @@ from typing import AsyncIterator
 
 import httpx
 
+from backend.nodes.health import probe_url
 from .base import ChatRequest, Provider, ProviderError
 
 
@@ -22,11 +23,12 @@ class OpenAICompatibleProvider(Provider):
     async def health(self) -> bool:
         if not self.endpoint:
             return False
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                return (await client.get(f"{self.endpoint}/v1/models", headers=self.headers)).is_success
-        except httpx.HTTPError:
-            return False
+        return await probe_url(
+            f"{self.endpoint}/v1/models",
+            timeout_s=3.0,
+            headers=self.headers,
+            cache_key=f"provider:{self.id}:{self.endpoint}",
+        )
 
     async def list_models(self) -> list[dict]:
         if not self.endpoint:

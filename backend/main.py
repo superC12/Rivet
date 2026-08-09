@@ -9,7 +9,16 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend import __version__
-from backend.api import chat, conversations, health, models, nodes, routes, settings as settings_api
+from backend.api import (
+    chat,
+    classify,
+    conversations,
+    health,
+    models,
+    nodes,
+    routes,
+    settings as settings_api,
+)
 from backend.api.dependencies import database
 from backend.config import ROOT, settings
 
@@ -48,6 +57,7 @@ app.include_router(health.router)
 app.include_router(models.router)
 app.include_router(nodes.router)
 app.include_router(routes.router)
+app.include_router(classify.router)
 app.include_router(settings_api.router)
 app.include_router(conversations.router)
 app.include_router(chat.router)

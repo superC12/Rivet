@@ -1,3 +1,10 @@
+function accentChannels(color) {
+  const hex = String(color || "").match(/^#([0-9a-f]{6})$/i);
+  if (hex) return [0, 2, 4].map(index => Number.parseInt(hex[1].slice(index, index + 2), 16));
+  const channels = String(color || "").match(/[\d.]+/g);
+  return channels?.length >= 3 ? channels.slice(0, 3).map(Number) : [228, 180, 95];
+}
+
 export class Atmosphere {
   constructor(canvas) {
     this.canvas = canvas;
@@ -11,6 +18,7 @@ export class Atmosphere {
     this.frame = null;
     this.last = 0;
     this.visible = true;
+    this.accent = [228, 180, 95];
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!canvas || !this.ctx) return;
     this.resize = this.resize.bind(this);
@@ -19,6 +27,10 @@ export class Atmosphere {
     document.addEventListener("visibilitychange", () => {
       this.visible = !document.hidden;
       if (this.visible) this.start(); else this.stop();
+    });
+    addEventListener("rivet:accentchange", event => {
+      this.accent = accentChannels(event.detail?.color);
+      if (this.mode === "static") this.drawStatic();
     });
     if (!matchMedia("(pointer: coarse)").matches) {
       addEventListener("pointermove", event => {
@@ -33,7 +45,7 @@ export class Atmosphere {
 
   configure({ mode, intensity, speed } = {}) {
     if (mode) this.mode = this.reduced ? "static" : mode;
-    if (intensity != null) this.intensity = Number(intensity);
+    if (intensity != null) this.intensity = Math.min(.18, Math.max(.08, Number(intensity)));
     if (speed != null) this.speed = Number(speed);
     if (this.mode === "static") { this.stop(); this.drawStatic(); } else this.start();
   }
@@ -74,14 +86,7 @@ export class Atmosphere {
     const w = innerWidth, h = innerHeight;
     ctx.clearRect(0, 0, w, h);
     const isLight = document.documentElement.dataset.theme === "light";
-    const accentValue = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
-    const accentMatch = accentValue.match(/[\d.]+/g);
-    const hexMatch = accentValue.match(/^#([0-9a-f]{6})$/i);
-    const contextualAccent = accentMatch?.length >= 3
-      ? accentMatch.slice(0, 3).map(Number)
-      : hexMatch
-        ? [0, 2, 4].map(index => Number.parseInt(hexMatch[1].slice(index, index + 2), 16))
-        : [228, 180, 95];
+    const contextualAccent = this.accent;
     const stateColor = this.state === "error"
       ? [255, 107, 107]
       : ["warning", "routing", "waking"].includes(this.state)
@@ -90,10 +95,10 @@ export class Atmosphere {
     const palette = isLight
       ? [[98, 128, 166], contextualAccent, stateColor]
       : [[44, 122, 128], contextualAccent, stateColor];
-    const energy = this.state === "routing" ? 1.18 : this.state === "warning" ? .86 : this.state === "error" ? .58 : 1;
+    const energy = this.state === "warning" ? .86 : this.state === "error" ? .58 : 1;
     const baseY = this.state === "cloud" ? .64 : .76;
     const pointerForce = this.mode === "dynamic" && this.pointer.active ? .018 : 0;
-    const alpha = Math.max(.09, this.intensity) * (isLight ? .82 : 1.28) * energy;
+    const alpha = Math.min(.18, Math.max(.08, this.intensity * (isLight ? .82 : 1) * energy));
 
     palette.forEach((color, index) => {
       const phase = t * (index % 2 ? -1 : 1) + index * 2.2;

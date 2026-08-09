@@ -21,8 +21,8 @@ import time
 
 import httpx
 
-ONLINE_TTL_S = 10.0
-OFFLINE_TTL_S = 30.0
+ONLINE_TTL_S = 60.0
+OFFLINE_TTL_S = 120.0
 PROBE_TIMEOUT_S = 2.0
 
 
@@ -59,16 +59,35 @@ class HealthCache:
 cache = HealthCache()
 
 
-async def probe(endpoint: str, timeout_s: float = PROBE_TIMEOUT_S, use_cache: bool = True) -> bool:
-    """Is an Ollama-compatible endpoint answering right now?"""
+async def probe_url(
+    url: str,
+    timeout_s: float = PROBE_TIMEOUT_S,
+    use_cache: bool = True,
+    *,
+    headers: dict[str, str] | None = None,
+    cache_key: str | None = None,
+) -> bool:
+    """Probe an HTTP health URL through the shared reachability cache."""
+    key = cache_key or url
     if use_cache:
-        cached = cache.get(endpoint)
+        cached = cache.get(key)
         if cached is not None:
             return cached
     try:
         async with httpx.AsyncClient(timeout=timeout_s) as client:
-            response = await client.get(f"{endpoint.rstrip('/')}/api/tags")
+            response = await client.get(url, headers=headers)
         online = response.is_success
     except httpx.HTTPError:
         online = False
-    return cache.set(endpoint, online)
+    return cache.set(key, online)
+
+
+async def probe(endpoint: str, timeout_s: float = PROBE_TIMEOUT_S, use_cache: bool = True) -> bool:
+    """Is an Ollama-compatible endpoint answering right now?"""
+    normalized = endpoint.rstrip("/")
+    return await probe_url(
+        f"{normalized}/api/tags",
+        timeout_s,
+        use_cache,
+        cache_key=normalized,
+    )

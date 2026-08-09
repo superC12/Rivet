@@ -86,7 +86,13 @@ DEFAULT_THRESHOLDS = {
 
 async def run(mode: str, endpoint: str, model: str, thresholds: dict[str, float]) -> int:
     cases = load_cases()
-    classifier = Classifier({"mode": mode, "endpoint": endpoint, "model": model})
+    # CLI arguments are the most explicit configuration in an eval run. Do
+    # not let deployment environment variables silently redirect the test to
+    # another dispatcher or model.
+    classifier = Classifier(
+        {"mode": mode, "endpoint": endpoint, "model": model},
+        honor_environment=False,
+    )
 
     print(f"mode:   {mode}")
     if mode == "dispatch":

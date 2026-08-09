@@ -22,6 +22,7 @@ email nobody meant to send.
 
 from __future__ import annotations
 
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -313,9 +314,117 @@ class DispatchClassifier:
             error=None if lane else "unparseable label",
         )
 
+    async def health(self, use_cache: bool = True) -> dict:
+        """Probe the dispatcher for real, not just this process.
+
+        Distinguishes the two failures that look identical from inside a
+        request. Ollama being down is obvious once you look. The dispatch
+        model never having been created is not — `ollama create` is a
+        step people skip, and the symptom is every request quietly
+        failing upward to the fallback lane at cloud prices. Naming that
+        case is the whole point of checking the tag list rather than
+        just asking whether the port answers.
+
+        Cached briefly: the dashboard polls status on a timer, and a
+        classifier that is fine now is still fine a few seconds later.
+        """
+        key = f"{self.endpoint}|{self.model}"
+        if use_cache:
+            cached = _health_cache.get(key)
+            if cached is not None:
+                return cached
+        result = await self._probe()
+        _health_cache.set(key, result)
+        return result
+
+    async def _probe(self) -> dict:
+        started = time.perf_counter()
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_s) as client:
+                response = await client.get(f"{self.endpoint}/api/tags")
+                response.raise_for_status()
+                tags = [item.get("name", "") for item in response.json().get("models", [])]
+        except Exception as exc:  # noqa: BLE001 - health never raises
+            return {
+                "status": "unreachable",
+                "endpoint": self.endpoint,
+                "model": self.model,
+                "model_installed": False,
+                "latency_ms": self._elapsed(started),
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+        installed = any(_tag_matches(self.model, tag) for tag in tags)
+        return {
+            "status": "ok" if installed else "model_missing",
+            "endpoint": self.endpoint,
+            "model": self.model,
+            "model_installed": installed,
+            "latency_ms": self._elapsed(started),
+            "error": None
+            if installed
+            else f"{self.model} is not installed. Create it with: ollama create {self.model} -f administrator-provided model recipe",
+        }
+
     @staticmethod
     def _elapsed(started: float) -> int:
         return round((time.perf_counter() - started) * 1000)
+
+
+CLASSIFIER_HEALTH_TTL_S = 60.0
+
+
+class _HealthCache:
+    """Tiny TTL memo for dispatcher probes.
+
+    Module-level because a `Classifier` is built per request; instance
+    state would never survive to be reused.
+    """
+
+    # The dashboard refreshes every 45 seconds. Keep a successful or failed
+    # dispatcher probe alive beyond that boundary so each refresh does not
+    # immediately repeat a potentially blocking network timeout.
+    TTL_S = CLASSIFIER_HEALTH_TTL_S
+
+    def __init__(self) -> None:
+        self._entries: dict[str, tuple[dict, float]] = {}
+
+    def get(self, key: str) -> dict | None:
+        entry = self._entries.get(key)
+        if not entry or time.monotonic() >= entry[1]:
+            self._entries.pop(key, None)
+            return None
+        return entry[0]
+
+    def set(self, key: str, value: dict) -> None:
+        self._entries[key] = (value, time.monotonic() + self.TTL_S)
+
+    def invalidate(self) -> None:
+        self._entries.clear()
+
+
+_health_cache = _HealthCache()
+
+
+def _tag_matches(configured: str, available: str) -> bool:
+    """Does an Ollama tag satisfy the configured model name?
+
+    Ollama reports `name:latest` for a model created without an explicit
+    tag, so an exact string compare would report a correctly installed
+    dispatcher as missing.
+    """
+    if ":" in configured:
+        return available == configured
+    return available == configured or available.startswith(f"{configured}:")
+
+
+def _env_first(*names: str) -> str | None:
+    """First environment variable that is set and non-empty."""
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return None
 
 
 class Classifier:
@@ -342,19 +451,48 @@ class Classifier:
     never silent.
     """
 
-    def __init__(self, config: dict | None = None) -> None:
+    # Environment overrides the config file. The dispatcher usually runs
+    # on the always-on server rather than wherever Rivet's YAML was last
+    # edited, and a deployment should be able to point it somewhere else
+    # without hand-editing config. `RIVET_`-prefixed names win; the
+    # unprefixed ones are the conventional spellings.
+    ENV_MODE = ("RIVET_CLASSIFIER_MODE", "CLASSIFIER_MODE")
+    ENV_ENDPOINT = ("RIVET_DISPATCH_ENDPOINT", "OLLAMA_URL")
+    ENV_MODEL = ("RIVET_DISPATCH_MODEL", "DISPATCH_MODEL")
+    ENV_TIMEOUT = ("RIVET_DISPATCH_TIMEOUT_S", "DISPATCH_TIMEOUT_S")
+    ENV_FALLBACK = ("RIVET_FALLBACK_LANE", "FALLBACK_LANE")
+
+    DEFAULT_ENDPOINT = "http://127.0.0.1:11434"
+    DEFAULT_MODEL = "administrator-selected-classifier"
+    DEFAULT_TIMEOUT_S = 5.0
+
+    def __init__(self, config: dict | None = None, *, honor_environment: bool = True) -> None:
         config = config or {}
+
+        def configured(env_names: tuple[str, ...], key: str, default):
+            override = _env_first(*env_names) if honor_environment else None
+            return override or config.get(key, default)
+
         self.heuristic = HeuristicClassifier()
-        self.mode = str(config.get("mode", "heuristic")).lower()
-        self.fallback_lane = str(config.get("fallback_lane", ESCALATE)).upper()
-        if self.fallback_lane not in DISPATCH_LANES:
-            self.fallback_lane = ESCALATE
+        self.mode = str(configured(self.ENV_MODE, "mode", "heuristic")).lower()
+
+        fallback = str(configured(self.ENV_FALLBACK, "fallback_lane", ESCALATE)).upper()
+        self.fallback_lane = fallback if fallback in DISPATCH_LANES else ESCALATE
+
+        self.endpoint = str(configured(self.ENV_ENDPOINT, "endpoint", self.DEFAULT_ENDPOINT))
+        self.model = str(configured(self.ENV_MODEL, "model", self.DEFAULT_MODEL))
+        try:
+            self.timeout_s = float(configured(self.ENV_TIMEOUT, "timeout_s", self.DEFAULT_TIMEOUT_S))
+        except (TypeError, ValueError):
+            # A malformed timeout must not stop Rivet from starting.
+            self.timeout_s = self.DEFAULT_TIMEOUT_S
+
         self.dispatch: DispatchClassifier | None = None
         if self.mode == "dispatch":
             self.dispatch = DispatchClassifier(
-                endpoint=config.get("endpoint", "http://127.0.0.1:11434"),
-                model=config.get("model", "administrator-selected-classifier"),
-                timeout_s=float(config.get("timeout_s", 5.0)),
+                endpoint=self.endpoint,
+                model=self.model,
+                timeout_s=self.timeout_s,
                 fallback_lane=self.fallback_lane,
             )
 
@@ -364,3 +502,25 @@ class Classifier:
         if not self.dispatch:
             return self.heuristic.classify(text)
         return await self.dispatch.classify(text)
+
+    def describe(self) -> dict:
+        """What this classifier is, without probing anything."""
+        return {
+            "mode": self.mode,
+            "lanes": list(LANES),
+            "fallback_lane": self.fallback_lane,
+            "model": self.model if self.dispatch else None,
+            "endpoint": self.endpoint if self.dispatch else None,
+            "timeout_s": self.timeout_s if self.dispatch else None,
+        }
+
+    async def health(self, use_cache: bool = True) -> dict:
+        """Is classification actually working?
+
+        The heuristic runs in-process with no dependencies, so it is
+        healthy by construction. Only the dispatch mode can be broken in
+        a way the user cannot see from the outside.
+        """
+        if not self.dispatch:
+            return {**self.describe(), "status": "ok", "model_installed": None, "latency_ms": 0, "error": None}
+        return {**self.describe(), **await self.dispatch.health(use_cache=use_cache)}

@@ -4,7 +4,7 @@ import asyncio
 
 from fastapi import APIRouter
 
-from .dependencies import discover_models, providers
+from .dependencies import discover_models, provider_node_type, providers
 
 router = APIRouter(prefix="/api")
 
@@ -24,6 +24,7 @@ async def list_providers() -> list[dict]:
             "type": provider.config.get("type"),
             "name": provider.config.get("display_name", provider_id),
             "node": provider.node,
+            "node_type": provider_node_type(provider),
             "endpoint": provider.endpoint if provider.config.get("type") != "openrouter" else "OpenRouter",
             "manual": bool(provider.config.get("manual")),
             "status": "online" if online else "offline",

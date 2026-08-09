@@ -5,16 +5,13 @@ from typing import AsyncIterator
 
 import httpx
 
+from backend.nodes.health import probe
 from .base import ChatRequest, Provider, ProviderError
 
 
 class OllamaProvider(Provider):
     async def health(self) -> bool:
-        try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                return (await client.get(f"{self.endpoint}/api/tags")).is_success
-        except httpx.HTTPError:
-            return False
+        return await probe(self.endpoint)
 
     async def list_models(self) -> list[dict]:
         try:

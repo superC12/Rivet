@@ -8,8 +8,14 @@ router:
 
   classifier:
     # heuristic - deterministic patterns, needs nothing installed.
-    # dispatch  - asks a small local model instead. Score it with
-    #             `python eval/run_eval.py --mode dispatch` first.
+    # dispatch  - asks a small local model instead. Build it first with
+    #             `ollama create administrator-selected-classifier -f administrator-provided model recipe`
+    #             and score it with `python eval/run_eval.py --mode dispatch`.
+    #
+    # Every value below can be overridden by the environment, so the
+    # dispatcher can be pointed at the always-on server without editing
+    # this file: RIVET_CLASSIFIER_MODE, RIVET_DISPATCH_ENDPOINT,
+    # RIVET_DISPATCH_MODEL, RIVET_DISPATCH_TIMEOUT_S, RIVET_FALLBACK_LANE.
     mode: heuristic
     endpoint: http://127.0.0.1:11434
     model: administrator-selected-classifier

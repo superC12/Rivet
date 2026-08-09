@@ -131,6 +131,42 @@ def test_manual_non_openrouter_provider_requires_an_endpoint():
     assert response.status_code == 422
 
 
+def test_manual_provider_and_its_orphaned_node_can_be_deleted():
+    from copy import deepcopy
+
+    from fastapi.testclient import TestClient
+
+    from backend.api.dependencies import invalidate_model_cache
+    from backend.config import CONFIG_DIR, _save, settings
+    from backend.main import app
+
+    original = deepcopy(settings.rivet)
+    try:
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/providers/manual",
+                json={
+                    "name": "Temporary Remote",
+                    "type": "ollama",
+                    "endpoint": "http://100.64.0.42:11434",
+                    "location": "remote",
+                },
+            )
+            provider_id = created.json()["provider_id"]
+            node_id = settings.rivet["providers"][provider_id]["node"]
+
+            removed = client.delete(f"/api/providers/manual/{provider_id}")
+
+            assert removed.status_code == 200
+            assert provider_id not in settings.rivet["providers"]
+            assert node_id not in settings.rivet["nodes"]
+            assert client.delete("/api/providers/manual/local-ollama").status_code == 404
+    finally:
+        settings.rivet = original
+        _save(CONFIG_DIR / "rivet.yaml", original)
+        invalidate_model_cache()
+
+
 # --- config templates -------------------------------------------------
 
 

@@ -25,7 +25,6 @@
   --ease: cubic-bezier(.22, 1, .36, 1);
   --mono: "JetBrains Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-  transition: --accent .42s ease;
 }
 
 :root[data-theme="light"] {

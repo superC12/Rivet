@@ -48,3 +48,58 @@ def test_about_panel_does_not_hardcode_a_version():
     markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="about-version"' in markup
     assert not re.search(r"Version \d+\.\d+\.\d+", markup)
+
+
+def test_adaptive_accent_has_a_status_target_and_is_not_pinned_by_root_transition():
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    tokens = (ROOT / "frontend" / "css" / "tokens.css").read_text(encoding="utf-8")
+
+    assert 'id="accent-context"' in markup
+    assert 'aria-live="polite"' in markup
+    assert not re.search(r"transition\s*:[^;]*--accent", tokens)
+
+
+def test_atmosphere_uses_explicit_accent_invalidation_and_stays_within_the_brief():
+    atmosphere = (ROOT / "frontend" / "js" / "atmosphere.js").read_text(encoding="utf-8")
+    accent = (ROOT / "frontend" / "js" / "accent.js").read_text(encoding="utf-8")
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    assert "getComputedStyle" not in atmosphere
+    assert 'addEventListener("rivet:accentchange"' in atmosphere
+    assert 'new CustomEvent("rivet:accentchange"' in accent
+    assert "Math.min(.18, Math.max(.08," in atmosphere
+    assert 'id="settings-intensity" type="range" min="0.08" max="0.18"' in markup
+
+
+def test_status_poll_hits_the_shared_health_cache_and_remote_nodes_stay_remote():
+    from backend.nodes.health import OFFLINE_TTL_S, ONLINE_TTL_S
+    from backend.routing.classifier import CLASSIFIER_HEALTH_TTL_S
+
+    app = (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    runtime = (ROOT / "frontend" / "js" / "runtime.js").read_text(encoding="utf-8")
+    poll_match = re.search(r"setInterval\(.*?,\s*(\d+)\);", app)
+
+    assert poll_match
+    poll_seconds = int(poll_match.group(1)) / 1000
+    assert poll_seconds < ONLINE_TTL_S < OFFLINE_TTL_S
+    assert poll_seconds < CLASSIFIER_HEALTH_TTL_S
+    assert '["remote", "tailscale"].includes(provider.node_type)' in runtime
+    assert 'kind === "local" ? "local_only" : "auto"' in runtime
+
+
+def test_classifier_health_reaches_the_diagnostics_popover():
+    runtime = (ROOT / "frontend" / "js" / "runtime.js").read_text(encoding="utf-8")
+    assert "status.classifier" in runtime
+    assert 'classifier.error || ""' in runtime
+    assert '"Classifier"' in runtime
+
+
+def test_eval_cli_arguments_do_not_inherit_deployment_environment():
+    eval_runner = (ROOT / "eval" / "run_eval.py").read_text(encoding="utf-8")
+    assert "honor_environment=False" in eval_runner
+
+
+def test_manual_connections_have_a_removal_control():
+    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    assert 'className = "connection-delete"' in settings
+    assert '/api/providers/manual/${encodeURIComponent(provider.id)}' in settings

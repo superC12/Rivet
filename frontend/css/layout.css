@@ -62,6 +62,8 @@
 .diagnostic-reading { display: flex; align-items: baseline; gap: 8px; flex: 0 0 auto; }
 .diagnostic-reading strong { font: 9px/1 var(--mono); color: var(--secondary); text-transform: uppercase; }
 .diagnostic-reading small { color: var(--tertiary); font: 9px/1 var(--mono); }
+.diagnostic-row.has-detail { flex-wrap: wrap; padding: 10px 0; }
+.diagnostic-detail { flex: 0 0 100%; margin: -5px 0 2px 13px; color: var(--secondary); font: 9px/1.5 var(--mono); overflow-wrap: anywhere; }
 .diagnostic-foot { margin: 12px 0 0; color: var(--tertiary); font: 9px/1 var(--mono); text-align: right; }
 .conversation { position: relative; overflow-y: auto; scroll-behavior: smooth; padding: 48px 34px 60px; }
 .empty-state { width: min(680px, 100%); margin: clamp(72px, 15vh, 160px) auto 0; animation: appear .5s var(--ease) both; }

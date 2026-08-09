@@ -67,6 +67,7 @@ export class SettingsPanel {
 
   populate(config) {
     const motion = config.interface.motion;
+    const intensity = Math.min(.18, Math.max(.08, Number(motion.intensity)));
     const accent = config.interface.accent || { mode: "adaptive", color: "#e4b45f" };
     document.querySelector("#settings-name").value = config.assistant.name;
     document.querySelector("#settings-tagline").value = config.assistant.tagline;
@@ -75,9 +76,9 @@ export class SettingsPanel {
     document.querySelector("#settings-accent-mode").value = accent.mode;
     this.setAccentColor(accent.color);
     document.querySelector("#settings-motion").value = motion.mode;
-    document.querySelector("#settings-intensity").value = motion.intensity;
+    document.querySelector("#settings-intensity").value = intensity;
     document.querySelector("#settings-speed").value = motion.speed;
-    document.querySelector("#intensity-output").value = `${Math.round(motion.intensity * 100)}%`;
+    document.querySelector("#intensity-output").value = `${Math.round(intensity * 100)}%`;
     document.querySelector("#speed-output").value = `${Number(motion.speed).toFixed(1)}×`;
     document.querySelector("#settings-strategy").value = config.router.strategy;
     document.querySelector("#settings-prefer-local").checked = config.router.prefer_local;
@@ -124,9 +125,36 @@ export class SettingsPanel {
       const copy = document.createElement("div"); const title = document.createElement("h3"); title.textContent = provider.name || (provider.type === "openrouter" ? "OpenRouter" : provider.id);
       if (provider.manual) { const origin = document.createElement("span"); origin.className = "connection-origin"; origin.textContent = "MANUAL"; title.append(origin); }
       const meta = document.createElement("p"); meta.textContent = provider.endpoint || (provider.node ? `Provider on ${provider.node}` : "Cloud provider"); copy.append(title, meta);
+      const actions = document.createElement("div"); actions.className = "connection-actions";
       const status = document.createElement("span"); status.className = `status-label ${provider.status === "online" ? "online" : ""}`; status.innerHTML = `<i></i><span>${provider.status}</span>`;
-      card.append(copy, status); list.append(card);
+      actions.append(status);
+      if (provider.manual) {
+        const remove = document.createElement("button"); remove.type = "button"; remove.className = "connection-delete"; remove.textContent = "Remove";
+        remove.setAttribute("aria-label", `Remove manual connection: ${provider.name || provider.id}`);
+        remove.addEventListener("click", () => this.deleteManualProvider(provider, remove));
+        actions.append(remove);
+      }
+      card.append(copy, actions); list.append(card);
     });
+  }
+
+  async deleteManualProvider(provider, button) {
+    const name = provider.name || provider.id;
+    if (!window.confirm(`Remove the manual connection “${name}”?`)) return;
+    button.disabled = true;
+    try {
+      const result = await this.api(`/api/providers/manual/${encodeURIComponent(provider.id)}`, { method: "DELETE" });
+      this.config = result.settings;
+      this.onSave(result.settings);
+      this.renderConnections(await this.api("/api/providers"));
+      const saved = document.querySelector("#settings-saved");
+      saved.textContent = "Connection removed";
+      setTimeout(() => { if (saved.textContent === "Connection removed") saved.textContent = ""; }, 1800);
+    } catch (error) {
+      button.disabled = false;
+      this.manualStatus.classList.add("error");
+      this.manualStatus.textContent = `Could not remove ${name}. ${error.message}`;
+    }
   }
 
   showManualProvider() {

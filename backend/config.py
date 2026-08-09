@@ -177,5 +177,27 @@ class Settings:
             _save(CONFIG_DIR / "rivet.yaml", self.rivet)
         return self.public()
 
+    def remove_manual_provider(self, provider_id: str) -> dict[str, Any] | None:
+        provider = self.rivet.get("providers", {}).get(provider_id)
+        if not isinstance(provider, dict) or not provider.get("manual"):
+            return None
+
+        updated = deepcopy(self.rivet)
+        removed = updated.get("providers", {}).pop(provider_id)
+        node_id = removed.get("node")
+        node_is_unused = node_id and not any(
+            candidate.get("node") == node_id
+            for candidate in updated.get("providers", {}).values()
+            if isinstance(candidate, dict)
+        )
+        expected_manual_node = node_id == f"{provider_id}-node"
+        node_config = updated.get("nodes", {}).get(node_id, {}) if node_id else {}
+        if node_is_unused and (expected_manual_node or node_config.get("manual")):
+            updated.get("nodes", {}).pop(node_id, None)
+
+        self.rivet = updated
+        _save(CONFIG_DIR / "rivet.yaml", self.rivet)
+        return self.public()
+
 
 settings = Settings()

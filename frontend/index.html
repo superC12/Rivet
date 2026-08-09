@@ -80,6 +80,7 @@
         </form>
         <div class="composer-meta">
           <p class="composer-note">Route, model, and execution trace are recorded with every response.</p>
+          <span class="sr-only" id="accent-context" role="status" aria-live="polite">Adaptive · Ready</span>
         </div>
       </div>
     </main>
@@ -218,7 +219,7 @@ Don't pretend actions succeeded.</textarea></label>
             <p class="field-note">Adaptive uses coral for creative work, mint for math and science, blue for code, violet for analysis, and amber for actions. The base color handles everything else.</p>
           </div>
           <label>Background<select id="settings-motion"><option value="static">Static</option><option value="ambient">Ambient</option><option value="dynamic">Dynamic</option></select></label>
-          <label>Intensity <output id="intensity-output">18%</output><input id="settings-intensity" type="range" min="0" max="0.3" step="0.01"></label>
+          <label>Intensity <output id="intensity-output">18%</output><input id="settings-intensity" type="range" min="0.08" max="0.18" step="0.01"></label>
           <label>Motion speed <output id="speed-output">1.0×</output><input id="settings-speed" type="range" min="0.3" max="1.6" step="0.1"></label>
         </section>
         <section class="settings-section" data-section="advanced">

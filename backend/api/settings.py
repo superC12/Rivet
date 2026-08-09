@@ -4,10 +4,11 @@ import re
 from typing import Any
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import AnyHttpUrl, BaseModel, Field, model_validator
 
 from backend.config import settings
+from backend.nodes.health import cache as health_cache
 from .dependencies import invalidate_model_cache
 
 router = APIRouter(prefix="/api")
@@ -86,9 +87,21 @@ async def save_manual_provider(payload: ManualProviderPayload) -> dict:
                 "type": "local" if location == "local" else "remote",
                 "display_name": payload.name.strip(),
                 "always_on": True,
+                "manual": True,
             }
         }
     result = settings.update(update)
+    health_cache.invalidate()
+    invalidate_model_cache()
+    return {"provider_id": provider_id, "settings": result}
+
+
+@router.delete("/providers/manual/{provider_id}")
+async def delete_manual_provider(provider_id: str) -> dict:
+    result = settings.remove_manual_provider(provider_id)
+    if result is None:
+        raise HTTPException(404, "Manual provider not found")
+    health_cache.invalidate()
     invalidate_model_cache()
     return {"provider_id": provider_id, "settings": result}
 

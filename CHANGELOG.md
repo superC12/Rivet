@@ -8,6 +8,33 @@ Before 1.0.0, minor versions may change internal interfaces.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-09
+
+### Added
+
+- Manual connections can now be removed from Connections; Rivet also cleans up
+  the unused node created for that connection.
+
+### Changed
+
+- Provider diagnostics now expose node type so remote and Tailscale compute is
+  labelled and selected independently from local-only routes.
+- Provider health checks share a cache whose online and offline lifetimes both
+  outlast the dashboard poll, reducing repeated probes of sleeping hardware.
+- Atmospheric rendering now receives accent changes through an explicit event
+  and keeps effective opacity within the 8–18% interface range.
+
+### Fixed
+
+- Adaptive accent changes are no longer pinned to the initial amber value, and
+  the controller now updates an accessible context status target.
+- Eval CLI endpoint and model arguments now take precedence over deployment
+  environment variables, so evaluations cannot silently target another host.
+- Classifier failures now surface their actionable error in the diagnostics
+  popover, including the command needed to create a missing dispatch model.
+- Classifier health remains cached beyond the dashboard refresh interval,
+  avoiding a blocking dispatcher probe on every poll when Ollama is offline.
+
 ## [1.0.0] - 2026-08-09
 
 The first stable Rivet release: a self-hosted AI dashboard that can run on an
@@ -285,7 +312,8 @@ Initial release.
   `prefers-reduced-motion`.
 - Docker support.
 
-[Unreleased]: https://github.com/superC12/Rivet/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/superC12/Rivet/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/superC12/Rivet/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/superC12/Rivet/releases/tag/v1.0.0
 [0.3.0]: https://github.com/superC12/Rivet/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/superC12/Rivet/compare/v0.2.0...v0.2.1

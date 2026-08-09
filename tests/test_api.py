@@ -33,6 +33,7 @@ def test_provider_diagnostics_include_real_metadata_and_latency():
     assert result["id"] == "local-ollama"
     assert result["type"] == "ollama"
     assert result["node"] == "homelab"
+    assert result["node_type"] == "local"
     assert result["status"] == "online"
     assert isinstance(result["latency_ms"], int)
 

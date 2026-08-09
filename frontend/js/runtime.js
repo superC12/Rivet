@@ -1,6 +1,7 @@
 const ICONS = {
   auto: '<svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="4" cy="9" r="2"/><circle cx="14" cy="4" r="2"/><circle cx="14" cy="14" r="2"/><path d="M6 9h3m0 0 3.5-4M9 9l3.5 4"/></svg>',
   local: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="3.5" width="13" height="11" rx="2"/><path d="m5.5 7 2 2-2 2M9 11h3.5"/></svg>',
+  remote: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="3.5" width="13" height="8" rx="2"/><path d="M6 15h6M9 11.5V15M4.5 6.5h.01M7 6.5h.01"/></svg>',
   cloud: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M5.2 14h8a3 3 0 0 0 .4-6A4.6 4.6 0 0 0 5 6.7 3.7 3.7 0 0 0 5.2 14Z"/></svg>',
   api: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="m6.5 4-4 5 4 5M11.5 4l4 5-4 5M10 3 8 15"/></svg>',
   action: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2.5v4m0 5v4M2.5 9h4m5 0h4M4.4 4.4l2.8 2.8m3.6 3.6 2.8 2.8m0-9.2-2.8 2.8m-3.6 3.6-2.8 2.8"/></svg>',
@@ -10,12 +11,16 @@ const ICONS = {
 
 function icon(kind) { return ICONS[kind] || ICONS.model; }
 function providerKind(provider) {
-  if (provider.type === "openrouter") return "cloud";
-  if (provider.type === "ollama" || provider.node) return "local";
+  if (provider.type === "openrouter" || provider.node_type === "cloud") return "cloud";
+  if (["remote", "tailscale"].includes(provider.node_type)) return "remote";
+  if (provider.node_type === "local" || provider.type === "ollama") return "local";
   return "api";
 }
 function providerLabel(provider) {
-  return { ollama: "Local LLM", openrouter: "Cloud", openai_compatible: "API" }[provider.type] || provider.id;
+  const kind = providerKind(provider);
+  if (provider.type === "ollama") return kind === "remote" ? "Remote LLM" : "Local LLM";
+  if (provider.type === "openai_compatible" && kind === "remote") return "Remote API";
+  return { openrouter: "Cloud", openai_compatible: "API" }[provider.type] || provider.id;
 }
 function create(tag, className, text) {
   const element = document.createElement(tag);
@@ -96,7 +101,9 @@ export class RouteControl {
     const model = this.models.find(item => item.provider === providerId);
     if (model) return this.choose(`model:${model.provider}:${model.id}`);
     const provider = this.providers.find(item => item.id === providerId);
-    if (provider) this.choose(providerKind(provider) === "cloud" ? "cloud" : "local_only");
+    if (!provider) return;
+    const kind = providerKind(provider);
+    this.choose(kind === "cloud" ? "cloud" : kind === "local" ? "local_only" : "auto");
   }
 
   renderTrigger() {
@@ -267,17 +274,31 @@ export class RuntimeDashboard {
     this.diagnosticRow(list, "Rivet endpoint", status.status, `${roundTrip} ms`);
     this.diagnosticRow(list, "Stream channel", "ready", "HTTP/SSE");
     this.diagnosticRow(list, "Router", status.router?.status || "unknown", status.router?.strategy || "auto");
+    if (status.classifier) {
+      const classifier = status.classifier;
+      const classifierValue = classifier.mode === "dispatch"
+        ? `${classifier.model || "dispatcher"} · ${classifier.latency_ms ?? 0} ms`
+        : "built-in heuristic";
+      this.diagnosticRow(
+        list,
+        "Classifier",
+        classifier.status || "unknown",
+        classifierValue,
+        classifier.error || "",
+      );
+    }
     this.diagnosticRow(list, "Database", status.database?.status || "unknown", "local");
     (status.providers || []).forEach(provider => this.diagnosticRow(list, providerLabel(provider), provider.status, `${provider.latency_ms} ms`));
   }
 
-  diagnosticRow(container, label, status, value) {
-    const row = create("div", "diagnostic-row");
+  diagnosticRow(container, label, status, value, detail = "") {
+    const row = create("div", `diagnostic-row${detail ? " has-detail" : ""}`);
     const name = create("span", "diagnostic-name");
     name.append(create("i", status === "ok" || status === "online" || status === "ready" ? "online" : ""), create("span", "", label));
     const reading = create("span", "diagnostic-reading");
     reading.append(create("strong", "", status), create("small", "", value));
     row.append(name, reading);
+    if (detail) row.append(create("p", "diagnostic-detail", detail));
     container.append(row);
   }
 

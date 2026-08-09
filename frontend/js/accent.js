@@ -68,6 +68,7 @@ export class AccentController {
         ? `Rivet matched this request to ${context.toLowerCase()} work and adjusted the interface accent.`
         : "The interface is using your fixed accent color from Appearance settings.";
     }
+    dispatchEvent(new CustomEvent("rivet:accentchange", { detail: { color, context } }));
     return { color, context };
   }
 }

@@ -34,6 +34,14 @@ def nodes() -> NodeManager:
     return NodeManager(settings.rivet.get("nodes", {}), settings.rivet.get("providers", {}))
 
 
+def provider_node_type(provider: Provider) -> str | None:
+    """Return where a provider's compute node actually runs."""
+    if not provider.node:
+        return None
+    node = settings.rivet.get("nodes", {}).get(provider.node, {})
+    return str(node.get("type", "local")).lower()
+
+
 async def discover_models(use_cache: bool = True) -> list[dict]:
     """List every model Rivet can currently reach.
 

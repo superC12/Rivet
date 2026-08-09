@@ -115,7 +115,13 @@ Both constraints hold on the **failure path** too. When the chosen model dies mi
 
 `heuristic` (the default) is deterministic pattern matching. It needs nothing installed and costs nothing.
 
-`dispatch` asks a small local model instead. Measure it before turning it on:
+`dispatch` asks a small local model instead. The dispatcher is built in — Rivet ships the model recipe, runs the classifier in its own process, and needs no separate routing service. Build the model on whichever machine runs Ollama for it:
+
+```bash
+ollama create administrator-selected-classifier -f administrator-provided model recipe
+```
+
+Then turn it on and measure it before trusting it:
 
 ```yaml
 router:
@@ -124,6 +130,48 @@ router:
     endpoint: http://127.0.0.1:11434
     model: administrator-selected-classifier
 ```
+
+The dispatcher is the same weights as the local brain, pinned to an 8K context at zero temperature. Classification never needs a large context — that was the tool-calling requirement, and this model does not call tools.
+
+### Pointing the dispatcher elsewhere
+
+The classifier usually runs on the always-on server rather than wherever the config file was last edited, so every value can be overridden by the environment. `RIVET_`-prefixed names win; the unprefixed spellings are accepted too.
+
+| Variable | Overrides | Default |
+| --- | --- | --- |
+| `RIVET_CLASSIFIER_MODE` / `CLASSIFIER_MODE` | `mode` | `heuristic` |
+| `RIVET_DISPATCH_ENDPOINT` / `OLLAMA_URL` | `endpoint` | `http://127.0.0.1:11434` |
+| `RIVET_DISPATCH_MODEL` / `DISPATCH_MODEL` | `model` | `administrator-selected-classifier` |
+| `RIVET_DISPATCH_TIMEOUT_S` / `DISPATCH_TIMEOUT_S` | `timeout_s` | `5.0` |
+| `RIVET_FALLBACK_LANE` / `FALLBACK_LANE` | `fallback_lane` | `ESCALATE` |
+
+### Checking the classifier
+
+`GET /api/classifier` reports the configuration and probes the dispatcher for real. It separates the two failures that look identical from inside a request:
+
+```json
+{ "status": "model_missing", "model_installed": false,
+  "error": "administrator-selected-classifier is not installed. Create it with: ollama create administrator-selected-classifier -f administrator-provided model recipe" }
+```
+
+That distinction matters because a broken dispatcher never fails loudly. Every request simply fails upward to `ESCALATE` and gets answered by a larger model, so the first symptom is the bill. `/api/status` carries the same block, and marks the router `degraded` when the classifier is not healthy.
+
+### Asking where a request would go
+
+`POST /api/classify` returns the lane without running anything — it picks no provider, wakes no node, runs no action, and stores nothing:
+
+```bash
+curl -s localhost:8080/api/classify -H 'content-type: application/json' \
+  -d '{"text":"why is my docker container exiting with 137"}'
+```
+
+```json
+{"lane": "ESCALATE", "confident": true, "source": "heuristic",
+ "reason": "Infrastructure specifics are easy to invent",
+ "latency_ms": 0, "allowed_tiers": ["REMOTE", "CLOUD", "LOCAL"]}
+```
+
+`allowed_tiers` is what the lane may actually use under the current policy and the requested `mode`, which the lane alone does not tell you. An `ACTION` lane returns none, because actions go to the gateway rather than to a model.
 
 ## Measure before you wire
 
