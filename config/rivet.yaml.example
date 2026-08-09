@@ -30,6 +30,13 @@ providers:
     type: ollama
     node: homelab
     endpoint: http://127.0.0.1:11434
+    # Bounded server-side discovery: no LAN scan. Rivet tries the explicit
+    # endpoint first, followed by these common Docker locations. Add more
+    # through RIVET_OLLAMA_ENDPOINTS as a comma-separated environment value.
+    auto_detect: true
+    discovery_endpoints:
+      - http://host.docker.internal:11434
+      - http://ollama:11434
 
   openrouter-main:
     type: openrouter

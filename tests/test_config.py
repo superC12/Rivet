@@ -110,6 +110,7 @@ def test_manual_provider_is_saved_as_a_real_routable_connection():
         provider = providers()["manual-lab-backup"]
         assert provider.endpoint == "http://10.0.0.42:11434"
         assert provider.node == "manual-lab-backup-node"
+        assert provider.config["auto_detect"] is False
         assert settings.rivet["nodes"][provider.node]["type"] == "remote"
         assert settings.rivet["providers"]["manual-lab-backup"]["manual"] is True
     finally:

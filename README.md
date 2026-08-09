@@ -73,7 +73,11 @@ pip install -r requirements.txt
 uvicorn backend.main:app --host 127.0.0.1 --port 8080
 ```
 
-Open `http://127.0.0.1:8080`. Rivet checks the default Ollama endpoint at `http://127.0.0.1:11434` during onboarding.
+Open `http://127.0.0.1:8080`. During onboarding Rivet checks the configured
+Ollama endpoint first, then administrator-provided candidates, Docker's
+`host.docker.internal`, and the common `ollama` Compose service name. It does
+not scan your LAN. Add custom candidates with the comma-separated
+`RIVET_OLLAMA_ENDPOINTS` environment variable.
 
 For OpenRouter, copy `.env.example` to `.env`, set `OPENROUTER_API_KEY`, and load the file into your process environment before starting Rivet. Secrets are intentionally not editable through the browser.
 
@@ -199,6 +203,54 @@ python eval/run_eval.py --min-escalate-recall 0.95 --min-accuracy 0.95
 
 `--min-action-precision` defaults to `1.00` and has no slack, because a false ACTION has a side effect in the world.
 
+## Benchmarks
+
+`eval/run_eval.py` measures Rivet's own router. **Settings → Benchmarks** measures the models underneath it, and does it from the dashboard: saved suites you can edit, run, and compare against previous runs.
+
+Two ship as starting points, both ordinary editable rows from the moment they appear:
+
+- **Speed & Footprint** — *how fast it answers, and how much of the machine it takes.* Cold-start generation speed, prompt throughput, load time, resident size, and how much of the model sits on the GPU.
+- **Judgment & Limits** — *whether it follows your protocol, and admits what it cannot do.* Arithmetic, instruction following, tool-call JSON, escalation, and hallucination resistance.
+
+**＋ New benchmark** creates your own, of either kind, with your own prompts and grading rules. Custom benchmarks are stored exactly like the starters, and nothing here is privileged: the two that ship can be renamed, rewritten, or deleted like any other.
+
+### Hiding the panel
+
+Deleting every benchmark hides the Benchmarks tab — an empty measurement panel is just clutter. **Settings → Advanced → Benchmarks** switches it back on, and restores the two starters if nothing is saved.
+
+Hiding is not deleting. Turning the toggle off puts the panel away and leaves every saved benchmark untouched, so switching it back on returns exactly what you had. Restoring the starters only ever runs when nothing is saved, so it cannot bury your own benchmarks under two you already deleted.
+
+Models are never typed in. The dropdowns are filled from whatever Ollama actually reports on the selected connection, so a suite cannot name a model nobody has, and pulling a new model is enough to make it selectable. A model that was chosen earlier and is no longer detected stays visible, marked, rather than disappearing quietly.
+
+Suites and their run history live in `data/rivet.db`. Runs stream while they happen, and a run that fails part-way still records what it measured before failing.
+
+### Grading
+
+| Grader | Passes when |
+| --- | --- |
+| `exact_number` | The expected number appears, ignoring `,` separators and trailing punctuation |
+| `contains` | The expected text appears, case-insensitively |
+| `exact_lowercase` | The answer *starts* with the expected word |
+| `exact_match` | The whole answer equals the expected token |
+| `valid_json_tool` | A parseable JSON object naming the expected tool appears |
+| `manual` | Never — it is marked **review** for a human |
+
+`manual` is a real answer, not a gap. "Did it admit it doesn't know?" has no honest automatic verdict, and a suite that guessed would quietly turn judgement calls into a score you shouldn't trust. Review results are counted separately and never fold into the pass rate.
+
+### What benchmarks deliberately do not do
+
+These suites replace a pair of shell scripts, and three things from those scripts were left out on purpose.
+
+**No `nvidia-smi`.** Rivet routinely routes to compute that is not the machine Rivet runs on. Sampling the local GPU would report the wrong card's memory, and would do it silently. `GET /api/ps` reports `size` and `size_vram` for the model on the machine that actually ran it, so the numbers follow the work — and it needs no GPU tooling installed next to Rivet.
+
+**No `sudo journalctl -u ollama`.** The offload line it greps for is derivable: `size_vram / size` is the fraction resident on the GPU, which is the **On GPU** column. Reading it from the API costs no privileges, whereas shelling out to `sudo` from an HTTP request would hand a web endpoint root on a dashboard built around never executing arbitrary commands. The genuine loss is per-layer detail; the ratio answers what that detail was being used for.
+
+**No automatic `ollama create` for context rebuilds.** Rebuilding every model at a new `num_ctx` mutates your model library as a side effect of clicking Run. Build the variant yourself and it appears in the dropdown like any other model:
+
+```bash
+ollama create mymodel-ctx8192 -f Modelfile.ctx8192
+```
+
 ## Add a remote Ollama node
 
 Add a provider and node to `config/rivet.yaml`. A Tailscale hostname or IP works as the provider endpoint:
@@ -265,7 +317,12 @@ A webhook set to *respond immediately* returns 200 **before** the workflow runs.
 docker compose up --build
 ```
 
-The Compose file binds Rivet to `127.0.0.1:8080`, persists `config` and `data`, and contains only the Rivet service. If Ollama runs on the Docker host, change its configured endpoint to `http://host.docker.internal:11434`.
+The Compose file binds Rivet to `127.0.0.1:8080`, persists `config` and `data`,
+and contains only the Rivet service. Rivet automatically tries
+`http://host.docker.internal:11434` when its configured local endpoint is not
+reachable. Ollama must listen beyond host loopback for a container to reach it;
+set `OLLAMA_HOST=0.0.0.0:11434` on the Docker host and keep port 11434 protected
+by the host firewall.
 
 ## Releases
 

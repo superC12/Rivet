@@ -5,11 +5,26 @@ export class Onboarding {
     this.atmosphere = atmosphere;
     this.onComplete = onComplete;
     this.step = 1;
+    this.instanceName = "Your assistant";
     this.progress = document.querySelector("#onboarding-progress");
     for (let index = 1; index <= 5; index++) this.progress.append(document.createElement("i"));
     overlay.querySelectorAll(".next-step").forEach(button => button.addEventListener("click", () => this.go(this.step + 1)));
     overlay.querySelectorAll(".previous-step").forEach(button => button.addEventListener("click", () => this.go(this.step - 1)));
     document.querySelector("#finish-onboarding").addEventListener("click", () => this.finish());
+    document.querySelector("#setup-name").addEventListener("input", event => this.setInstanceName(event.target.value));
+  }
+
+  setInstanceName(value, syncInput = false) {
+    const chosen = value.trim();
+    const name = chosen || "Your assistant";
+    this.instanceName = name;
+    if (syncInput) document.querySelector("#setup-name").value = value;
+    document.querySelector("#onboarding").setAttribute("aria-label", `${name} setup`);
+    document.querySelector("#onboarding-platform").textContent = name.toUpperCase();
+    document.querySelector("#onboarding-welcome").textContent = chosen ? `Welcome to ${name}.` : "Welcome.";
+    document.querySelector("#onboarding-compute-title").textContent = `Where can ${name} think?`;
+    document.querySelector("#onboarding-auto-copy").textContent = `Recommended · ${name} chooses the right source`;
+    document.querySelector("#activation-name").textContent = name.toUpperCase().split("").join(" ");
   }
 
   async show() { this.overlay.hidden = false; this.atmosphere.configure({ mode: "ambient", intensity: .15 }); this.go(1); }
@@ -23,7 +38,7 @@ export class Onboarding {
     if (this.step === 4) await this.models();
     if (this.step === 5) {
       const name = document.querySelector("#setup-name").value.trim();
-      document.querySelector("#activation-name").textContent = name.toUpperCase().split("").join(" ");
+      this.setInstanceName(name);
     }
   }
 
@@ -32,9 +47,9 @@ export class Onboarding {
     const label = document.querySelector("#ollama-discovery-label");
     label.textContent = "Checking for Ollama…";
     try {
-      const providers = await this.api("/api/providers");
+      const providers = await this.api("/api/providers?refresh=true");
       const ollama = providers.find(provider => provider.type === "ollama");
-      if (ollama?.status === "online") { dot.classList.add("online"); label.textContent = "Ollama detected"; }
+      if (ollama?.status === "online") { dot.classList.add("online"); label.textContent = `Ollama detected · ${ollama.endpoint}`; }
       else { dot.classList.remove("online"); label.textContent = "Ollama not detected"; }
     } catch { label.textContent = "Discovery unavailable"; }
   }

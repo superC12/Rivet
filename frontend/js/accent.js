@@ -36,7 +36,10 @@ export class AccentController {
     this.mode = "adaptive";
     this.baseColor = "#e4b45f";
     this.lastText = "";
+    this.assistantName = "Your assistant";
   }
+
+  setAssistantName(name) { this.assistantName = name; }
 
   configure(config = {}) {
     this.mode = config.mode === "fixed" ? "fixed" : "adaptive";
@@ -65,7 +68,7 @@ export class AccentController {
     if (this.label) {
       this.label.textContent = `${this.mode === "adaptive" ? "Adaptive" : "Fixed"} · ${context}`;
       this.label.dataset.tooltip = this.mode === "adaptive"
-        ? `Rivet matched this request to ${context.toLowerCase()} work and adjusted the interface accent.`
+        ? `${this.assistantName} matched this request to ${context.toLowerCase()} work and adjusted the interface accent.`
         : "The interface is using your fixed accent color from Appearance settings.";
     }
     dispatchEvent(new CustomEvent("rivet:accentchange", { detail: { color, context } }));

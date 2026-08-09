@@ -9,7 +9,9 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend import __version__
+from backend.benchmarks import seed as seed_starters
 from backend.api import (
+    benchmarks,
     chat,
     classify,
     conversations,
@@ -19,7 +21,7 @@ from backend.api import (
     routes,
     settings as settings_api,
 )
-from backend.api.dependencies import database
+from backend.api.dependencies import benchmark_store, database
 from backend.config import ROOT, settings
 
 FRONTEND = ROOT / "frontend"
@@ -48,6 +50,8 @@ class RevalidatingStaticFiles(StaticFiles):
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     database.initialize()
+    # Only seeds an empty table, so a deleted starter stays deleted.
+    seed_starters(benchmark_store)
     yield
 
 
@@ -58,6 +62,7 @@ app.include_router(models.router)
 app.include_router(nodes.router)
 app.include_router(routes.router)
 app.include_router(classify.router)
+app.include_router(benchmarks.router)
 app.include_router(settings_api.router)
 app.include_router(conversations.router)
 app.include_router(chat.router)

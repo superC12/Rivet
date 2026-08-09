@@ -74,6 +74,9 @@ async def save_manual_provider(payload: ManualProviderPayload) -> dict:
         "display_name": payload.name.strip(),
         "node": node_id,
         "manual": True,
+        # An explicitly named connection must never be silently redirected
+        # to a different Ollama instance when its endpoint is offline.
+        "auto_detect": False,
     }
     if payload.endpoint is not None:
         provider["endpoint"] = str(payload.endpoint).rstrip("/")

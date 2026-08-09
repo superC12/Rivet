@@ -28,16 +28,25 @@ function applyTheme(appearance) {
 function applyConfig(config) {
   state.config = config;
   const platform = config.platform.name || "Rivet";
-  const name = config.assistant.name || "Atlas";
-  const brandLetters = Array.from(platform.toUpperCase());
-  document.querySelector("#platform-mark").textContent = brandLetters.shift() || "R";
+  // A reset or first install is an identity decision still in progress.
+  // Do not leak the template's default name into the tab, sidebar, or
+  // background dashboard while the neutral onboarding screen is open.
+  const savedName = config.assistant.name || platform;
+  const name = config.onboarding.complete ? savedName : "Your assistant";
+  const brandLetters = Array.from(name.toUpperCase());
+  document.querySelector("#platform-mark").textContent = brandLetters.shift() || "A";
   document.querySelector("#platform-wordmark").textContent = brandLetters.join(" ");
-  document.querySelector("#onboarding-platform").textContent = platform.toUpperCase();
-  document.querySelector("#onboarding-welcome").textContent = `Welcome to ${platform}.`;
   document.querySelector("#about-mark").textContent = platform.slice(0, 1).toUpperCase();
   document.querySelector("#about-platform").textContent = platform;
+  document.querySelector('.side-link[data-panel="compute"]').dataset.tooltip = `See the machines and model providers ${name} can use.`;
   document.title = name;
   chat.setAssistantName(name);
+  accent.setAssistantName(name);
+  runtime.setInstanceName(name);
+  // An incomplete setup is a clean identity decision. Do not prefill an old
+  // name after an onboarding reset, restore, or reinstall; the person at the
+  // screen should deliberately choose it.
+  onboarding.setInstanceName(config.onboarding.complete ? name : "", true);
   applyTheme(config.interface.appearance);
   accent.configure(config.interface.accent);
   atmosphere.configure(config.interface.motion);
@@ -123,7 +132,7 @@ async function bootstrap() {
     await Promise.all([loadComputeLabels(), runtime.refresh(config)]);
   } catch (error) {
     document.querySelector("#connection-label").textContent = "Offline";
-    document.querySelector("#system-activity").textContent = "Rivet could not finish starting. Refresh to try again.";
+    document.querySelector("#system-activity").textContent = "Your assistant could not finish starting. Refresh to try again.";
     console.error(error);
   }
 }

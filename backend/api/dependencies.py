@@ -6,11 +6,13 @@ from backend.actions import N8nGateway
 from backend.config import settings
 from backend.nodes import NodeManager
 from backend.providers import OllamaProvider, OpenAICompatibleProvider, OpenRouterProvider, Provider
+from backend.storage.benchmarks import BenchmarkStore
 from backend.storage.conversations import ConversationStore
 from backend.storage.database import Database
 
 database = Database(settings.database_path)
 store = ConversationStore(database)
+benchmark_store = BenchmarkStore(database)
 
 
 def action_gateway() -> N8nGateway:

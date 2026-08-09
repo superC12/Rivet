@@ -16,6 +16,9 @@ interface:
   accent:
     mode: adaptive
     color: "#e4b45f"
+  # Removing every saved suite hides the Benchmarks panel. Switching this
+  # back on in Settings → Advanced restores it.
+  show_benchmarks: true
   motion:
     mode: dynamic
     intensity: 0.18

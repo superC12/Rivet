@@ -23,6 +23,9 @@ DEFAULT_ASSISTANT: dict[str, Any] = {
     "interface": {
         "appearance": "system",
         "accent": {"mode": "adaptive", "color": "#e4b45f"},
+        # Benchmarks are opt-out rather than opt-in: they are useful on
+        # first run, and removing every suite puts the panel away.
+        "show_benchmarks": True,
         "motion": {"mode": "dynamic", "intensity": 0.18, "speed": 1.0},
         "density": "minimal",
     },
@@ -55,6 +58,11 @@ DEFAULT_RIVET: dict[str, Any] = {
             "type": "ollama",
             "node": "homelab",
             "endpoint": "http://127.0.0.1:11434",
+            "auto_detect": True,
+            "discovery_endpoints": [
+                "http://host.docker.internal:11434",
+                "http://ollama:11434",
+            ],
         },
         "openrouter-main": {"type": "openrouter", "node": None},
     },

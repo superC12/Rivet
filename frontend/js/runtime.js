@@ -160,6 +160,7 @@ export class RuntimeDashboard {
     this.onOpenSettings = onOpenSettings;
     this.onPrompt = onPrompt;
     this.atmosphere = atmosphere;
+    this.instanceName = "Your assistant";
     this.config = null;
     this.data = null;
     this.button = document.querySelector("#connection-status");
@@ -170,6 +171,8 @@ export class RuntimeDashboard {
     document.addEventListener("click", event => { if (!event.target.closest(".header-status")) this.closeDiagnostics(); });
     document.addEventListener("keydown", event => { if (event.key === "Escape") this.closeDiagnostics(); });
   }
+
+  setInstanceName(name) { this.instanceName = name; }
 
   async refresh(config = this.config) {
     this.config = config;
@@ -212,10 +215,10 @@ export class RuntimeDashboard {
       : "No compute online · link a provider";
     const matrix = document.querySelector("#execution-matrix");
     matrix.replaceChildren();
-    const router = this.matrixNode({ label: "Rivet Router", detail: status.router?.strategy || "auto", status: active.length ? "ready" : "waiting", kind: "auto", primary: true });
+    const router = this.matrixNode({ label: `${this.instanceName} Router`, detail: status.router?.strategy || "auto", status: active.length ? "ready" : "waiting", kind: "auto", primary: true });
     router.addEventListener("click", () => active.length ? this.routeControl.choose("auto") : this.onOpenSettings("connections"));
     const engines = create("div", "matrix-engines");
-    engines.append(this.matrixNode({ label: "Rivet API", detail: `${roundTrip} ms`, status: "online", kind: "api" }));
+    engines.append(this.matrixNode({ label: `${this.instanceName} API`, detail: `${roundTrip} ms`, status: "online", kind: "api" }));
     providers.forEach(provider => {
       const node = this.matrixNode({
         label: providerLabel(provider),
@@ -271,7 +274,7 @@ export class RuntimeDashboard {
     const { status, roundTrip } = this.data;
     const list = document.querySelector("#diagnostic-list");
     list.replaceChildren();
-    this.diagnosticRow(list, "Rivet endpoint", status.status, `${roundTrip} ms`);
+    this.diagnosticRow(list, `${this.instanceName} endpoint`, status.status, `${roundTrip} ms`);
     this.diagnosticRow(list, "Stream channel", "ready", "HTTP/SSE");
     this.diagnosticRow(list, "Router", status.router?.status || "unknown", status.router?.strategy || "auto");
     if (status.classifier) {
@@ -303,14 +306,14 @@ export class RuntimeDashboard {
   }
 
   renderUnavailable(error) {
-    document.querySelector("#matrix-summary").textContent = "Rivet runtime unavailable";
+    document.querySelector("#matrix-summary").textContent = `${this.instanceName} runtime unavailable`;
     document.querySelector("#canvas-summary").textContent = "Control path unavailable · open Compute";
     const matrix = document.querySelector("#execution-matrix");
     matrix.replaceChildren(this.matrixNode({ label: "Connection lost", detail: error.message, status: "offline", kind: "api", primary: true }));
     document.querySelector("#action-triggers").replaceChildren();
     const list = document.querySelector("#diagnostic-list");
     list.replaceChildren();
-    this.diagnosticRow(list, "Rivet endpoint", "offline", "no response");
+    this.diagnosticRow(list, `${this.instanceName} endpoint`, "offline", "no response");
   }
 
   async openDiagnostics() {

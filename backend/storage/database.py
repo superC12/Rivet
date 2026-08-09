@@ -53,6 +53,27 @@ class Database:
         );
         CREATE INDEX IF NOT EXISTS idx_messages_conversation
         ON messages(conversation_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS benchmarks (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('perf', 'eval')),
+            description TEXT,
+            definition_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS benchmark_runs (
+            id TEXT PRIMARY KEY,
+            benchmark_id TEXT NOT NULL REFERENCES benchmarks(id) ON DELETE CASCADE,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            status TEXT NOT NULL,
+            summary TEXT,
+            results_json TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_benchmark_runs
+        ON benchmark_runs(benchmark_id, started_at DESC);
         """
         with self._lock, self.connect() as connection:
             connection.executescript(schema)

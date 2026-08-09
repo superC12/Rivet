@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 from typing import AsyncIterator
 
 import httpx
@@ -10,13 +12,66 @@ from .base import ChatRequest, Provider, ProviderError
 
 
 class OllamaProvider(Provider):
+    DEFAULT_DISCOVERY_ENDPOINTS = (
+        "http://host.docker.internal:11434",
+        "http://ollama:11434",
+    )
+
+    def _discovery_candidates(self) -> list[str]:
+        """Return bounded, server-controlled Ollama candidates.
+
+        Rivet deliberately does not scan the LAN. The configured endpoint
+        remains authoritative and is tried first; discovery only adds
+        administrator-provided addresses and the two conventional Docker
+        host/service names.
+        """
+        candidates = [self.endpoint]
+        if self.config.get("auto_detect", False):
+            environment = os.getenv("RIVET_OLLAMA_ENDPOINTS", "")
+            candidates.extend(item.strip() for item in environment.split(","))
+            configured = self.config.get("discovery_endpoints", [])
+            if isinstance(configured, str):
+                configured = [configured]
+            candidates.extend(str(item).strip() for item in configured)
+            candidates.extend(self.DEFAULT_DISCOVERY_ENDPOINTS)
+
+        unique: list[str] = []
+        for candidate in candidates:
+            normalized = str(candidate).rstrip("/")
+            if normalized and normalized not in unique:
+                unique.append(normalized)
+        return unique
+
+    async def _resolve_endpoint(self) -> str | None:
+        candidates = self._discovery_candidates()
+        if not candidates:
+            return None
+        if await probe(candidates[0]):
+            self.endpoint = candidates[0]
+            return self.endpoint
+        if len(candidates) == 1:
+            return None
+
+        # Alternative Docker/admin candidates are independent. Probe them
+        # concurrently so a missing DNS name costs one timeout, not one per
+        # candidate.
+        results = await asyncio.gather(*(probe(candidate) for candidate in candidates[1:]))
+        for candidate, online in zip(candidates[1:], results, strict=False):
+            if online:
+                self.endpoint = candidate
+                return self.endpoint
+        return None
+
     async def health(self) -> bool:
-        return await probe(self.endpoint)
+        return await self._resolve_endpoint() is not None
 
     async def list_models(self) -> list[dict]:
+        endpoint = await self._resolve_endpoint()
+        if endpoint is None:
+            return []
         try:
             async with httpx.AsyncClient(timeout=4.0) as client:
-                response = await client.get(f"{self.endpoint}/api/tags")
+                response = await client.get(f"{endpoint}/api/tags")
                 response.raise_for_status()
             return [
                 {
@@ -34,9 +89,10 @@ class OllamaProvider(Provider):
 
     async def chat(self, request: ChatRequest) -> AsyncIterator[str]:
         payload = {"model": request.model, "messages": request.messages, "stream": True, "options": {"temperature": request.temperature}}
+        endpoint = await self._resolve_endpoint() or self.endpoint
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
-                async with client.stream("POST", f"{self.endpoint}/api/chat", json=payload) as response:
+                async with client.stream("POST", f"{endpoint}/api/chat", json=payload) as response:
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         if not line:

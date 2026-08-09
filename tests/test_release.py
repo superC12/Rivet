@@ -103,3 +103,21 @@ def test_manual_connections_have_a_removal_control():
     settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
     assert 'className = "connection-delete"' in settings
     assert '/api/providers/manual/${encodeURIComponent(provider.id)}' in settings
+
+
+def test_instance_branding_uses_the_setup_identity_but_about_stays_rivet():
+    app = (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    runtime = (ROOT / "frontend" / "js" / "runtime.js").read_text(encoding="utf-8")
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    assert "const brandLetters = Array.from(name.toUpperCase())" in app
+    assert "runtime.setInstanceName(name)" in app
+    assert 'config.onboarding.complete ? savedName : "Your assistant"' in app
+    assert 'onboarding.setInstanceName(config.onboarding.complete ? name : "", true)' in app
+    assert 'document.querySelector("#about-platform").textContent = platform' in app
+    assert "`${this.instanceName} Router`" in runtime
+    assert "`${this.instanceName} API`" in runtime
+    assert markup.count(">Rivet<") == 1
+    assert 'id="about-platform">Rivet<' in markup
+    assert 'id="onboarding-platform">YOUR ASSISTANT<' in markup
+    assert 'id="setup-name" value=""' in markup

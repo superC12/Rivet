@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#08080a">
   <meta name="description" content="A lightweight home for your AI.">
-  <title>Rivet</title>
+  <title>AI Assistant</title>
   <link rel="stylesheet" href="/static/css/tokens.css">
   <link rel="stylesheet" href="/static/css/layout.css">
   <link rel="stylesheet" href="/static/css/chat.css">
@@ -21,7 +21,7 @@
     <button class="scrim" id="scrim" aria-label="Close navigation" tabindex="-1"></button>
     <aside class="sidebar" id="sidebar" aria-label="Conversation navigation">
       <div class="sidebar-top">
-        <button class="brand-mark" id="collapse-sidebar" aria-label="Collapse sidebar" data-tooltip="Collapse the conversation sidebar to leave more room for the current session."><span class="brand-initial" id="platform-mark">R</span><span class="brand-tail" id="platform-wordmark">I V E T</span></button>
+        <button class="brand-mark" id="collapse-sidebar" aria-label="Collapse sidebar" data-tooltip="Collapse the conversation sidebar to leave more room for the current session."><span class="brand-initial" id="platform-mark">A</span><span class="brand-tail" id="platform-wordmark">S S I S T A N T</span></button>
         <button class="icon-button close-mobile" id="close-sidebar" aria-label="Close navigation">×</button>
       </div>
       <button class="new-chat" id="new-chat"><span class="new-chat-icon">＋</span><span class="nav-label">New chat</span></button>
@@ -30,7 +30,7 @@
         <div id="conversation-list" class="conversation-list"></div>
       </nav>
       <div class="sidebar-links">
-        <button class="side-link" data-panel="compute" data-tooltip="See the machines and model providers Rivet can use."><span class="side-icon">⌁</span><span class="nav-label">Compute</span></button>
+        <button class="side-link" data-panel="compute" data-tooltip="See the machines and model providers this assistant can use."><span class="side-icon">⌁</span><span class="nav-label">Compute</span></button>
         <button class="side-link" data-panel="routing" data-tooltip="Control how requests move between local, remote, and cloud models."><span class="side-icon">↗</span><span class="nav-label">Routes</span></button>
         <button class="side-link" data-panel="assistant" data-tooltip="Change identity, connections, routing, privacy, and appearance."><span class="side-icon">⚙</span><span class="nav-label">Settings</span></button>
       </div>
@@ -86,16 +86,16 @@
     </main>
   </div>
 
-  <section class="onboarding" id="onboarding" aria-label="Rivet setup" hidden>
+  <section class="onboarding" id="onboarding" aria-label="Assistant setup" hidden>
     <canvas id="onboarding-atmosphere" aria-hidden="true"></canvas>
     <div class="onboarding-card">
       <div class="onboarding-progress" id="onboarding-progress" aria-label="Setup progress"></div>
       <div class="onboarding-step active" data-step="1">
-        <p class="onboarding-brand" id="onboarding-platform">RIVET</p>
-        <h1 id="onboarding-welcome">Welcome to Rivet.</h1>
+        <p class="onboarding-brand" id="onboarding-platform">YOUR ASSISTANT</p>
+        <h1 id="onboarding-welcome">Welcome.</h1>
         <p class="lead">A lightweight home for your AI.</p>
         <p class="step-question">What should we call your assistant?</p>
-        <label class="large-field"><span class="sr-only">Assistant name</span><input id="setup-name" value="Atlas" autocomplete="off" maxlength="32"></label>
+        <label class="large-field"><span class="sr-only">Assistant name</span><input id="setup-name" value="" autocomplete="off" maxlength="32"></label>
         <div class="onboarding-actions end"><button class="text-button next-step">Continue <span>→</span></button></div>
       </div>
       <div class="onboarding-step" data-step="2">
@@ -110,7 +110,7 @@ Don't pretend actions succeeded.</textarea></label>
       </div>
       <div class="onboarding-step" data-step="3">
         <p class="onboarding-kicker">03 — COMPUTE</p>
-        <h1>Where can Rivet think?</h1>
+        <h1 id="onboarding-compute-title">Where can your assistant think?</h1>
         <div class="discovery-list">
           <div class="discovery-item"><i id="ollama-discovery"></i><div><strong>Local models</strong><span id="ollama-discovery-label">Checking for Ollama…</span></div></div>
           <div class="discovery-item"><i></i><div><strong>OpenRouter</strong><span>Add an API key later</span></div></div>
@@ -122,7 +122,7 @@ Don't pretend actions succeeded.</textarea></label>
       <div class="onboarding-step" data-step="4">
         <p class="onboarding-kicker">04 — MODELS</p>
         <h1>Choose how it thinks.</h1>
-        <div id="setup-models" class="setup-models"><div class="setup-model selected"><i></i><div><strong>Auto Route</strong><span>Recommended · Rivet chooses the right source</span></div><b>✓</b></div></div>
+        <div id="setup-models" class="setup-models"><div class="setup-model selected"><i></i><div><strong>Auto Route</strong><span id="onboarding-auto-copy">Recommended · your assistant chooses the right source</span></div><b>✓</b></div></div>
         <div class="onboarding-actions"><button class="text-button previous-step">← Back</button><button class="text-button next-step">Activate →</button></div>
       </div>
       <div class="onboarding-step activation" data-step="5">
@@ -142,6 +142,7 @@ Don't pretend actions succeeded.</textarea></label>
         <button data-settings-section="compute">Compute</button>
         <button data-settings-section="routing">Routing</button>
         <button data-settings-section="connections">Connections</button>
+        <button data-settings-section="benchmarks">Benchmarks</button>
         <button data-settings-section="appearance">Appearance</button>
         <button data-settings-section="advanced">Advanced</button>
         <button data-settings-section="about">About</button>
@@ -150,7 +151,7 @@ Don't pretend actions succeeded.</textarea></label>
         <button class="dialog-close" id="close-settings" aria-label="Close settings">×</button>
         <div class="settings-scroll">
           <section class="settings-section active" data-section="assistant">
-          <p class="settings-kicker">IDENTITY</p><h2>Assistant</h2><p class="section-intro">This is the identity you interact with. It stays separate from Rivet's infrastructure.</p>
+          <p class="settings-kicker">IDENTITY</p><h2>Assistant</h2><p class="section-intro">This name controls the instance branding and the identity you interact with.</p>
           <label>Name<input id="settings-name" maxlength="32"></label>
           <label>Tagline<input id="settings-tagline" maxlength="120"></label>
           <label>Instructions<textarea id="settings-instructions" rows="7"></textarea></label>
@@ -176,7 +177,10 @@ Don't pretend actions succeeded.</textarea></label>
           <div class="manual-provider">
             <div class="manual-provider-head">
               <div><h3>Manual connections</h3><p>Connect by address when discovery cannot see a service.</p></div>
-              <button id="show-manual-provider" type="button" aria-expanded="false" aria-controls="manual-provider-form">＋ Add manually</button>
+              <div class="manual-provider-head-actions">
+                <button id="refresh-providers" type="button" data-tooltip="Clear cached connection results and retry automatic provider detection now.">↻ Detect again</button>
+                <button id="show-manual-provider" type="button" aria-expanded="false" aria-controls="manual-provider-form">＋ Add manually</button>
+              </div>
             </div>
             <div class="manual-provider-form" id="manual-provider-form" hidden>
               <div class="manual-provider-grid">
@@ -192,11 +196,35 @@ Don't pretend actions succeeded.</textarea></label>
           </div>
           <div class="action-gateway">
             <h3>n8n Actions Gateway</h3>
-            <p class="section-intro">Rivet reports an action as done only when n8n confirms it. A webhook that replies before its workflow runs is reported as unconfirmed, not as success.</p>
+            <p class="section-intro">An action is reported as done only when n8n confirms it. A webhook that replies before its workflow runs is reported as unconfirmed, not as success.</p>
             <label class="toggle-row"><span><b>Enable actions</b><small>Send action requests to n8n.</small></span><input type="checkbox" id="settings-n8n-enabled"></label>
             <label>Webhook URL <small id="n8n-configured-note"></small><input id="settings-n8n-endpoint" type="url" placeholder="https://n8n.example/webhook/rivet" autocomplete="off" spellcheck="false"></label>
             <p class="field-note">The URL carries its own authorisation, so it is stored on the server and never returned here. Leave it blank to keep the current one. Set <code>N8N_ACTION_KEY</code> in <code>.env</code> to sign requests.</p>
           </div>
+        </section>
+        <section class="settings-section" data-section="benchmarks">
+          <p class="settings-kicker">MEASUREMENT</p><h2>Benchmarks</h2>
+          <p class="section-intro">Saved suites you can edit and run here. Speed suites measure throughput, memory and GPU offload; reliability suites check whether a model follows the protocol you depend on.</p>
+          <div class="benchmark-bar">
+            <label class="benchmark-picker-field">Saved benchmark<select id="benchmark-picker" aria-label="Saved benchmarks"></select></label>
+            <div class="benchmark-bar-actions">
+              <button id="show-new-benchmark" type="button" aria-expanded="false" aria-controls="new-benchmark-form" data-tooltip="Create your own benchmark and save it here.">＋ New benchmark</button>
+            </div>
+          </div>
+          <div class="new-benchmark-form" id="new-benchmark-form" hidden>
+            <div class="new-benchmark-grid">
+              <label>Name<input id="new-benchmark-name" maxlength="80" placeholder="Overnight throughput check" autocomplete="off"></label>
+              <label>What it measures<select id="new-benchmark-kind">
+                <option value="perf">Speed &amp; Footprint — timing, memory and GPU offload</option>
+                <option value="eval">Judgment &amp; Limits — graded prompts with pass/fail rules</option>
+              </select></label>
+            </div>
+            <p class="new-benchmark-hint" id="new-benchmark-hint"></p>
+            <div class="new-benchmark-actions"><button id="cancel-new-benchmark" type="button">Cancel</button><button id="create-new-benchmark" type="button">Create benchmark</button></div>
+          </div>
+          <div id="benchmark-editor" class="benchmark-editor"></div>
+          <p class="benchmark-status" id="benchmark-status" role="status" aria-live="polite"></p>
+          <div id="benchmark-results" class="benchmark-results"></div>
         </section>
         <section class="settings-section" data-section="appearance">
           <p class="settings-kicker">INTERFACE</p><h2>Appearance</h2>
@@ -224,6 +252,8 @@ Don't pretend actions succeeded.</textarea></label>
         </section>
         <section class="settings-section" data-section="advanced">
           <p class="settings-kicker">SYSTEM</p><h2>Advanced</h2>
+          <label class="toggle-row"><span><b>Benchmarks</b><small>Measure model speed and reliability from this dashboard. Removing every saved benchmark hides the panel.</small></span><input type="checkbox" id="settings-show-benchmarks"></label>
+          <p class="field-note" id="benchmarks-restore-note"></p>
           <div class="info-rows"><div><span>API</span><code>/api</code></div><div><span>Health</span><code>/health</code></div><div><span>Database</span><code>data/rivet.db</code></div><div><span>Configuration</span><code>config/*.yaml</code></div></div>
         </section>
           <section class="settings-section about-section" data-section="about">

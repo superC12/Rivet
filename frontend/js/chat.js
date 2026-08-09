@@ -42,6 +42,7 @@ export class Chat {
     this.streaming = false;
     this.accentTimer = null;
     this.nodeNames = {};
+    this.assistantName = "your assistant";
     this.form.addEventListener("submit", event => { event.preventDefault(); this.streaming ? this.stop() : this.submit(); });
     this.input.addEventListener("input", () => {
       this.resize();
@@ -56,7 +57,7 @@ export class Chat {
     document.querySelector("#composer-shortcut").textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ ↵" : "Ctrl ↵";
   }
 
-  setAssistantName(name) { this.input.setAttribute("aria-label", `Message ${name}`); }
+  setAssistantName(name) { this.assistantName = name; this.input.setAttribute("aria-label", `Message ${name}`); }
 
   routeSelection() { return this.routeControl.selection(); }
   primeInput(text) { this.input.value = text; this.resize(); this.accent?.adaptTo(text); this.input.focus(); }
@@ -93,7 +94,7 @@ export class Chat {
 
   applyMetadata(pair, metadata) {
     const toggle = pair.querySelector(".trace-toggle");
-    toggle.dataset.tooltip = "Open the routing trace to see why Rivet selected this model and where the request ran.";
+    toggle.dataset.tooltip = `Open the routing trace to see why ${this.assistantName} selected this model and where the request ran.`;
     renderTrace(toggle, pair.querySelector(".trace-panel"), metadata);
     renderTelemetry(pair.querySelector(".telemetry"), metadata, this.nodeNames);
   }
@@ -128,7 +129,7 @@ export class Chat {
         error: data => { content.innerHTML = ""; const error = document.createElement("p"); error.className = "error-message"; error.textContent = data.message; content.append(error); this.applyMetadata(pair, { route: "ERROR", trace: data.trace || [] }); this.atmosphere.setState("error"); },
       }, this.controller.signal);
     } catch (error) {
-      if (error.name !== "AbortError") { content.textContent = `I couldn't connect to Rivet. ${error.message}`; this.atmosphere.setState("error"); }
+      if (error.name !== "AbortError") { content.textContent = `I couldn't connect to ${this.assistantName}. ${error.message}`; this.atmosphere.setState("error"); }
     } finally {
       content.querySelector(".cursor")?.remove(); this.finishStreaming(); this.onComplete(this.conversationId);
     }

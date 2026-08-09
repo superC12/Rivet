@@ -8,6 +8,37 @@ Before 1.0.0, minor versions may change internal interfaces.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-09
+
+### Added
+
+- Benchmark Studio in Settings, with editable Speed & Footprint and Judgment &
+  Limits starter suites, custom suites, automatic Ollama model targets,
+  streamed progress, grading, and persistent run history.
+- A single explained “New benchmark” workflow plus an Advanced visibility
+  control that can restore the starters without duplicating or deleting custom
+  suites.
+- Ollama auto-detection now checks bounded administrator and Docker candidates
+  after the configured endpoint, without scanning the local network or
+  redirecting explicitly created manual connections.
+
+### Changed
+
+- Instance branding now follows the assistant name selected during onboarding
+  and remains separate from Rivet's project identity in About.
+
+### Fixed
+
+- Fresh or reset onboarding now begins with neutral “Your assistant” branding
+  everywhere, including the browser tab, and a blank name field instead of
+  inheriting or suggesting an identity.
+- Stopped benchmark streams are recorded as cancelled and cannot overlap a
+  second run while shutdown is still settling.
+- Benchmark lists now pair the latest timestamp with the status and summary
+  from that same run rather than an indeterminate grouped database row.
+- The new-benchmark form now obeys its hidden state, and benchmark editors no
+  longer force horizontal scrolling at compact dashboard widths.
+
 ## [1.0.1] - 2026-08-09
 
 ### Added
@@ -312,7 +343,8 @@ Initial release.
   `prefers-reduced-motion`.
 - Docker support.
 
-[Unreleased]: https://github.com/superC12/Rivet/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/superC12/Rivet/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/superC12/Rivet/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/superC12/Rivet/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/superC12/Rivet/releases/tag/v1.0.0
 [0.3.0]: https://github.com/superC12/Rivet/compare/v0.2.1...v0.3.0

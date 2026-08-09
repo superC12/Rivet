@@ -1,3 +1,5 @@
+import { BenchmarksPanel } from "./benchmarks.js";
+
 function clampChannel(value) { return Math.min(255, Math.max(0, Number.parseInt(value, 10) || 0)); }
 
 function hexToRgb(color) {
@@ -15,6 +17,9 @@ export class SettingsPanel {
     this.onSave = onSave;
     this.dialog = document.querySelector("#settings-dialog");
     this.config = null;
+    this.benchmarks = new BenchmarksPanel({ api, onEmptied: () => this.setBenchmarksVisible(false) });
+    document.querySelector("#settings-show-benchmarks").addEventListener("change", event =>
+      this.setBenchmarksVisible(event.target.checked, { restore: true }));
     document.querySelectorAll(".side-link").forEach(button => button.addEventListener("click", () => this.open(button.dataset.panel)));
     document.querySelector("#close-settings").addEventListener("click", () => this.dialog.close());
     document.querySelector("#close-settings-mobile").addEventListener("click", () => this.dialog.close());
@@ -34,6 +39,7 @@ export class SettingsPanel {
     this.manualLocation = document.querySelector("#manual-provider-location");
     this.manualKeyEnv = document.querySelector("#manual-provider-key-env");
     this.manualStatus = document.querySelector("#manual-provider-status");
+    document.querySelector("#refresh-providers").addEventListener("click", event => this.refreshProviders(event.currentTarget));
     document.querySelector("#show-manual-provider").addEventListener("click", () => this.manualForm.hidden ? this.showManualProvider() : this.hideManualProvider());
     document.querySelector("#cancel-manual-provider").addEventListener("click", () => this.hideManualProvider());
     document.querySelector("#save-manual-provider").addEventListener("click", () => this.saveManualProvider());
@@ -63,6 +69,39 @@ export class SettingsPanel {
     this.dialog.querySelectorAll("[data-section]").forEach(panel => panel.classList.toggle("active", panel.dataset.section === name));
     const heading = this.dialog.querySelector(`[data-section="${name}"] h2`);
     if (this.dialog.open && heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+    // Benchmarks read the live model list, so they load when the panel
+    // is opened rather than on every settings fetch.
+    if (name === "benchmarks") this.benchmarks?.load();
+  }
+
+  applyBenchmarkVisibility(visible) {
+    const tab = this.dialog.querySelector('[data-settings-section="benchmarks"]');
+    const panel = this.dialog.querySelector('[data-section="benchmarks"]');
+    if (tab) tab.hidden = !visible;
+    if (panel) panel.hidden = !visible;
+    document.querySelector("#settings-show-benchmarks").checked = visible;
+    document.querySelector("#benchmarks-restore-note").textContent = visible
+      ? ""
+      : "Switching this on restores the two starter benchmarks if you have none saved. Your own benchmarks are never deleted by hiding the panel.";
+    // Never leave the user staring at a section that is now hidden.
+    if (!visible && panel?.classList.contains("active")) this.section("assistant");
+  }
+
+  async setBenchmarksVisible(visible, { restore = false } = {}) {
+    this.applyBenchmarkVisibility(visible);
+    try {
+      // Turning it back on with nothing saved would open an empty panel,
+      // so the starters come back with it.
+      if (visible && restore) await this.benchmarks.restoreStarters();
+      const config = await this.api("/api/settings", {
+        method: "POST",
+        body: JSON.stringify({ interface: { show_benchmarks: visible } }),
+      });
+      this.config = config;
+      if (visible) this.benchmarks.load();
+    } catch (error) {
+      document.querySelector("#benchmarks-restore-note").textContent = `Could not save that. ${error.message}`;
+    }
   }
 
   populate(config) {
@@ -91,6 +130,8 @@ export class SettingsPanel {
     // reports whether one is already stored.
     document.querySelector("#settings-n8n-endpoint").value = "";
     document.querySelector("#n8n-configured-note").textContent = n8n.configured ? "· a webhook is saved" : "· not set";
+
+    this.applyBenchmarkVisibility(config.interface.show_benchmarks !== false);
   }
 
   renderCompute(nodes) {
@@ -124,7 +165,10 @@ export class SettingsPanel {
       const card = document.createElement("article"); card.className = "connection-card";
       const copy = document.createElement("div"); const title = document.createElement("h3"); title.textContent = provider.name || (provider.type === "openrouter" ? "OpenRouter" : provider.id);
       if (provider.manual) { const origin = document.createElement("span"); origin.className = "connection-origin"; origin.textContent = "MANUAL"; title.append(origin); }
-      const meta = document.createElement("p"); meta.textContent = provider.endpoint || (provider.node ? `Provider on ${provider.node}` : "Cloud provider"); copy.append(title, meta);
+      else if (provider.auto_detect) { const origin = document.createElement("span"); origin.className = "connection-origin"; origin.textContent = "AUTO"; title.append(origin); }
+      const meta = document.createElement("p"); meta.textContent = provider.endpoint || (provider.node ? `Provider on ${provider.node}` : "Cloud provider");
+      if (provider.detected) meta.textContent += " · detected automatically";
+      copy.append(title, meta);
       const actions = document.createElement("div"); actions.className = "connection-actions";
       const status = document.createElement("span"); status.className = `status-label ${provider.status === "online" ? "online" : ""}`; status.innerHTML = `<i></i><span>${provider.status}</span>`;
       actions.append(status);
@@ -136,6 +180,24 @@ export class SettingsPanel {
       }
       card.append(copy, actions); list.append(card);
     });
+  }
+
+  async refreshProviders(button) {
+    button.disabled = true;
+    const original = button.textContent;
+    button.textContent = "Detecting…";
+    try {
+      const providers = await this.api("/api/providers?refresh=true");
+      this.renderConnections(providers);
+      const online = providers.filter(provider => provider.status === "online").length;
+      const saved = document.querySelector("#settings-saved");
+      saved.textContent = `${online} connection${online === 1 ? "" : "s"} online`;
+    } catch {
+      document.querySelector("#settings-saved").textContent = "Detection unavailable";
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
   }
 
   async deleteManualProvider(provider, button) {
