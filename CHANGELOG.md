@@ -8,6 +8,23 @@ Before 1.0.0, minor versions may change internal interfaces.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-09
+
+### Changed
+
+- Benchmark editing now uses compact disclosures for execution targets,
+  prompt rules, and test cases instead of presenting every control at once.
+- Evaluation cases use readable stacked cards when expanded, with a live case
+  count and a smaller suite identity treatment that matches the rest of the
+  settings interface.
+
+### Fixed
+
+- Benchmark controls no longer overlap or force horizontal scrolling inside
+  the narrower settings pane.
+- The general Settings save footer is hidden while editing benchmarks, leaving
+  only the relevant Delete, Save, and Run actions visible.
+
 ## [1.1.0] - 2026-08-09
 
 ### Added
@@ -343,7 +360,8 @@ Initial release.
   `prefers-reduced-motion`.
 - Docker support.
 
-[Unreleased]: https://github.com/superC12/Rivet/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/superC12/Rivet/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/superC12/Rivet/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/superC12/Rivet/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/superC12/Rivet/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/superC12/Rivet/releases/tag/v1.0.0

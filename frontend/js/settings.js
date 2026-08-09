@@ -65,6 +65,7 @@ export class SettingsPanel {
   }
 
   section(name) {
+    this.dialog.classList.toggle("benchmarks-active", name === "benchmarks");
     this.dialog.querySelectorAll("[data-settings-section]").forEach(button => button.classList.toggle("active", button.dataset.settingsSection === name));
     this.dialog.querySelectorAll("[data-section]").forEach(panel => panel.classList.toggle("active", panel.dataset.section === name));
     const heading = this.dialog.querySelector(`[data-section="${name}"] h2`);

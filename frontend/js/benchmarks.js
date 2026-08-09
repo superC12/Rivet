@@ -41,6 +41,15 @@ function field(labelText, control, hint) {
   return label;
 }
 
+function disclosure(title, meta = "") {
+  const details = create("details", "benchmark-disclosure");
+  const summary = create("summary");
+  summary.append(create("strong", "", title));
+  if (meta) summary.append(create("small", "", meta));
+  details.append(summary);
+  return details;
+}
+
 function bytes(value) {
   if (!value) return "—";
   const gb = value / 1024 ** 3;
@@ -202,7 +211,12 @@ export class BenchmarksPanel {
     const head = create("div", "benchmark-grid");
     head.append(field("Name", name), field("Description", description));
     this.editor.append(head);
-    this.editor.append(this.providerField(definition), this.modelField(definition));
+
+    const target = disclosure("Execution target", "Ollama connection and models");
+    const targetBody = create("div", "benchmark-disclosure-content");
+    targetBody.append(this.providerField(definition), this.modelField(definition));
+    target.append(targetBody);
+    this.editor.append(target);
 
     const body = create("div", "benchmark-body");
     if (suite.kind === "perf") this.renderPerfFields(body, definition);
@@ -307,11 +321,15 @@ export class BenchmarksPanel {
     text.rows = 4;
     text.value = definition.prompt_text || "";
 
-    container.append(
+    const options = disclosure("Run options", "Cold start and prompt size");
+    const content = create("div", "benchmark-disclosure-content");
+    content.append(
       coldRow,
       field("Prompt size (approx. tokens)", tokens, "Used only when no custom prompt is supplied."),
       field("Custom prompt", text, "Leave blank to generate filler of the size above."),
     );
+    options.append(content);
+    container.append(options);
     this.perfInputs = { cold, tokens, text };
   }
 
@@ -323,39 +341,65 @@ export class BenchmarksPanel {
     tool.rows = 3;
     tool.value = definition.tool_schema || "";
 
-    container.append(
+    const prompts = disclosure("Prompt rules", "System and tool instructions");
+    const promptContent = create("div", "benchmark-disclosure-content");
+    promptContent.append(
       field("System prompt", system, "Sent before every test except tool-call tests."),
       field("Tool schema", tool, "Used instead of the system prompt for tests in the tool_call category."),
     );
+    prompts.append(promptContent);
 
     const list = create("div", "benchmark-tests");
     (definition.tests || []).forEach(test => list.append(this.testRow(test)));
-    container.append(field("Test cases", list));
+    const tests = disclosure("Test cases");
+    const testCount = create("small", "benchmark-test-count");
+    tests.querySelector("summary").append(testCount);
+    const testContent = create("div", "benchmark-disclosure-content");
+    testContent.append(list);
 
     const add = create("button", "benchmark-add-test", "＋ Add test");
     add.type = "button";
-    add.addEventListener("click", () => list.append(this.testRow({ grading: "manual" })));
-    container.append(add);
+    add.addEventListener("click", () => {
+      list.append(this.testRow({ grading: "manual" }));
+      tests.open = true;
+      this.updateTestCount();
+    });
+    testContent.append(add);
+    tests.append(testContent);
+    container.append(prompts, tests);
 
     this.evalInputs = { system, tool, list };
+    this.testCount = testCount;
+    this.updateTestCount();
+  }
+
+  updateTestCount() {
+    if (!this.testCount || !this.evalInputs?.list) return;
+    const count = this.evalInputs.list.querySelectorAll("[data-test-row]").length;
+    this.testCount.textContent = `${count} case${count === 1 ? "" : "s"}`;
   }
 
   testRow(test) {
     const row = create("div", "benchmark-test");
     const id = create("input");
+    id.className = "benchmark-test-id";
     id.value = test.id || "";
     id.placeholder = "id";
     const category = create("input");
+    category.className = "benchmark-test-category";
     category.value = test.category || "";
     category.placeholder = "category";
     const prompt = create("textarea");
+    prompt.className = "benchmark-test-prompt";
     prompt.rows = 2;
     prompt.value = test.prompt || "";
     prompt.placeholder = "Prompt sent to the model";
     const expected = create("input");
+    expected.className = "benchmark-test-expected";
     expected.value = test.expected || "";
     expected.placeholder = "expected";
     const grading = create("select");
+    grading.className = "benchmark-test-grading";
     (this.targets.graders || []).forEach(name => {
       const option = create("option", "", name);
       option.value = name;
@@ -365,9 +409,13 @@ export class BenchmarksPanel {
     const remove = create("button", "benchmark-test-remove", "×");
     remove.type = "button";
     remove.setAttribute("aria-label", "Remove this test");
-    remove.addEventListener("click", () => row.remove());
+    remove.addEventListener("click", () => { row.remove(); this.updateTestCount(); });
 
-    row.append(id, category, prompt, expected, grading, remove);
+    const head = create("div", "benchmark-test-head");
+    head.append(field("ID", id), field("Category", category), field("Grader", grading), remove);
+    const body = create("div", "benchmark-test-body");
+    body.append(field("Prompt", prompt), field("Expected", expected));
+    row.append(head, body);
     row.dataset.testRow = "true";
     return row;
   }
@@ -388,7 +436,11 @@ export class BenchmarksPanel {
     definition.system_prompt = this.evalInputs.system.value;
     definition.tool_schema = this.evalInputs.tool.value;
     definition.tests = [...this.evalInputs.list.querySelectorAll("[data-test-row]")].map(row => {
-      const [id, category, prompt, expected, grading] = row.children;
+      const id = row.querySelector(".benchmark-test-id");
+      const category = row.querySelector(".benchmark-test-category");
+      const prompt = row.querySelector(".benchmark-test-prompt");
+      const expected = row.querySelector(".benchmark-test-expected");
+      const grading = row.querySelector(".benchmark-test-grading");
       return {
         id: id.value.trim(),
         category: category.value.trim(),

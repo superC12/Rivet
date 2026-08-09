@@ -121,3 +121,18 @@ def test_instance_branding_uses_the_setup_identity_but_about_stays_rivet():
     assert 'id="about-platform">Rivet<' in markup
     assert 'id="onboarding-platform">YOUR ASSISTANT<' in markup
     assert 'id="setup-name" value=""' in markup
+
+
+def test_benchmark_editor_uses_compact_collapsible_sections():
+    benchmarks = (ROOT / "frontend" / "js" / "benchmarks.js").read_text(encoding="utf-8")
+    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    styles = (ROOT / "frontend" / "css" / "settings.css").read_text(encoding="utf-8")
+
+    assert 'disclosure("Execution target"' in benchmarks
+    assert 'disclosure("Prompt rules"' in benchmarks
+    assert 'disclosure("Test cases"' in benchmarks
+    assert 'create("div", "benchmark-test-head")' in benchmarks
+    assert 'create("div", "benchmark-test-body")' in benchmarks
+    assert 'classList.toggle("benchmarks-active", name === "benchmarks")' in settings
+    assert ".settings-dialog.benchmarks-active .settings-footer { display: none; }" in styles
+    assert "grid-template-columns: 96px 120px 1fr 120px 128px 28px" not in styles
