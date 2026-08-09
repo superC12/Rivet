@@ -262,3 +262,70 @@ def test_stored_fallback_answer_is_not_spliced(two_providers):
         stored = client.get(f"/api/conversations/{conversation_id}").json()
     answers = [m["content"] for m in stored["messages"] if m["role"] == "assistant"]
     assert answers == ["the real answer"]
+
+
+# --- an explicitly selected classifier is not an assistant ------------
+
+
+def test_the_configured_classifier_is_kept_out_of_the_chat_model_list(monkeypatch):
+    from backend.api import dependencies
+
+    monkeypatch.setattr(dependencies, "classifier_model_name", lambda: "route-labeler")
+    assert dependencies.is_classifier_model({"id": "route-labeler:latest", "node": "homelab"})
+    assert dependencies.is_classifier_model({"id": "route-labeler", "node": "homelab"})
+    assert not dependencies.is_classifier_model({"id": "assistant-model", "node": "homelab"})
+
+
+def test_a_cloud_model_is_never_mistaken_for_the_classifier(monkeypatch):
+    from backend.api import dependencies
+
+    monkeypatch.setattr(dependencies, "classifier_model_name", lambda: "route-labeler")
+    assert not dependencies.is_classifier_model({"id": "route-labeler", "node": None})
+
+
+def test_no_classifier_is_hidden_by_default(monkeypatch):
+    from backend.api import dependencies
+
+    monkeypatch.setattr(dependencies, "classifier_model_name", lambda: "")
+    assert not dependencies.is_classifier_model({"id": "any-model", "node": "homelab"})
+
+
+def test_openrouter_has_no_predefined_model(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
+    from backend.api import dependencies
+
+    monkeypatch.setitem(
+        dependencies.settings.rivet,
+        "providers",
+        {"cloud": {"type": "openrouter", "node": None}},
+    )
+    monkeypatch.setattr(dependencies, "providers", lambda: {"cloud": SimpleNamespace(node=None)})
+
+    assert asyncio.run(dependencies._discover_models_uncached()) == []
+
+
+def test_discovery_hides_the_dispatcher_from_chat_but_not_from_benchmarks(monkeypatch):
+    import asyncio
+
+    from backend.api import dependencies
+
+    everything = [
+        {"id": "route-labeler:latest", "node": "homelab", "provider": "local-ollama"},
+        {"id": "assistant-model:latest", "node": "homelab", "provider": "local-ollama"},
+    ]
+
+    async def fake_uncached():
+        return everything
+
+    monkeypatch.setattr(dependencies, "_discover_models_uncached", fake_uncached)
+    monkeypatch.setattr(dependencies, "classifier_model_name", lambda: "route-labeler")
+    dependencies.invalidate_model_cache()
+
+    for_chat = asyncio.run(dependencies.discover_models())
+    for_benchmarks = asyncio.run(dependencies.discover_models(include_classifier=True))
+    dependencies.invalidate_model_cache()
+
+    assert [m["id"] for m in for_chat] == ["assistant-model:latest"]
+    assert len(for_benchmarks) == 2

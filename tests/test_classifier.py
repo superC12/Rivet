@@ -43,27 +43,27 @@ def stub_ollama(tags):
 def test_untagged_model_matches_the_latest_tag():
     # Ollama reports `name:latest` for a model created without a tag, so
     # an exact compare would call a working dispatcher missing.
-    assert _tag_matches("administrator-selected-classifier", "administrator-selected-classifier:latest")
-    assert _tag_matches("administrator-selected-classifier", "administrator-selected-classifier")
+    assert _tag_matches("route-labeler", "route-labeler:latest")
+    assert _tag_matches("route-labeler", "route-labeler")
 
 
 def test_an_explicit_tag_must_match_exactly():
-    assert _tag_matches("administrator-selected-model", "administrator-selected-model")
-    assert not _tag_matches("administrator-selected-model", "granite4.1:8b")
+    assert _tag_matches("route-labeler:v1", "route-labeler:v1")
+    assert not _tag_matches("route-labeler:v1", "route-labeler:v2")
 
 
 def test_a_different_model_does_not_match():
-    assert not _tag_matches("administrator-selected-classifier", "llama3:latest")
+    assert not _tag_matches("route-labeler", "assistant-model:latest")
 
 
 # --- dispatcher health -----------------------------------------------
 
 
 def test_health_reports_ok_when_the_model_is_installed():
-    server = stub_ollama(["administrator-selected-classifier:latest", "llama3:latest"])
+    server = stub_ollama(["route-labeler:latest", "assistant-model:latest"])
     try:
         endpoint = f"http://127.0.0.1:{server.server_port}"
-        result = asyncio.run(DispatchClassifier(endpoint, "administrator-selected-classifier").health())
+        result = asyncio.run(DispatchClassifier(endpoint, "route-labeler").health())
     finally:
         server.shutdown()
     assert result["status"] == "ok"
@@ -72,17 +72,28 @@ def test_health_reports_ok_when_the_model_is_installed():
 
 
 def test_health_names_the_missing_model_rather_than_just_failing():
-    # Ollama up but `ollama create` never run is the common setup miss,
-    # and from inside a request it looks identical to any other failure.
-    server = stub_ollama(["llama3:latest"])
+    server = stub_ollama(["assistant-model:latest"])
     try:
         endpoint = f"http://127.0.0.1:{server.server_port}"
-        result = asyncio.run(DispatchClassifier(endpoint, "administrator-selected-classifier").health())
+        result = asyncio.run(DispatchClassifier(endpoint, "route-labeler").health())
     finally:
         server.shutdown()
     assert result["status"] == "model_missing"
     assert result["model_installed"] is False
-    assert "ollama create administrator-selected-classifier" in result["error"]
+    assert "route-labeler" in result["error"]
+    assert "Modelfile" not in result["error"]
+
+
+def test_dispatch_without_a_selected_model_is_explicitly_unconfigured():
+    classifier = Classifier({"mode": "dispatch", "model": ""}, honor_environment=False)
+    health = asyncio.run(classifier.health(use_cache=False))
+    result = asyncio.run(classifier.classify("hello"))
+
+    assert health["status"] == "unconfigured"
+    assert health["model"] == ""
+    assert "Select a classifier model" in health["error"]
+    assert result.confident is False
+    assert result.error == health["error"]
 
 
 def test_health_reports_unreachable_without_raising():
@@ -115,10 +126,10 @@ def test_environment_overrides_the_config_file(monkeypatch):
 
 def test_conventional_env_names_also_work(monkeypatch):
     monkeypatch.setenv("OLLAMA_URL", "http://always-on:11434")
-    monkeypatch.setenv("DISPATCH_MODEL", "administrator-selected-classifier")
+    monkeypatch.setenv("DISPATCH_MODEL", "route-labeler")
     classifier = Classifier({"mode": "dispatch"})
     assert classifier.endpoint == "http://always-on:11434"
-    assert classifier.model == "administrator-selected-classifier"
+    assert classifier.model == "route-labeler"
 
 
 def test_prefixed_env_wins_over_the_conventional_one(monkeypatch):

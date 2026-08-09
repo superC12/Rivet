@@ -200,7 +200,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Score Rivet's request classifier.")
     parser.add_argument("--mode", default="heuristic", choices=("heuristic", "dispatch"))
     parser.add_argument("--endpoint", default="http://127.0.0.1:11434")
-    parser.add_argument("--model", default="administrator-selected-classifier")
+    parser.add_argument("--model", default="", help="classifier model name (required in dispatch mode)")
     for name, default in DEFAULT_THRESHOLDS.items():
         parser.add_argument(
             f"--min-{name}",
@@ -210,6 +210,8 @@ def main() -> int:
             help=f"minimum {name.replace('-', ' ')} (default {default:.2f})",
         )
     args = parser.parse_args()
+    if args.mode == "dispatch" and not args.model.strip():
+        parser.error("--model is required when --mode dispatch")
     thresholds = {name: getattr(args, f"min_{name.replace('-', '_')}") for name in DEFAULT_THRESHOLDS}
     return asyncio.run(run(args.mode, args.endpoint, args.model, thresholds))
 

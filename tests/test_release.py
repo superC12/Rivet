@@ -171,3 +171,17 @@ def test_about_easter_egg_opens_a_non_destructive_onboarding_preview():
     assert "await onboarding.openPreview()" in app
     assert "if (this.previewMode)" in onboarding
     assert "this.closePreview();\n      return;" in onboarding
+
+
+def test_the_app_shell_constrains_its_row_so_the_conversation_scrolls():
+    # Without an explicit row the shell has one implicit auto row, which
+    # sizes to content: a long conversation then grows the page instead
+    # of scrolling, pushing the composer off the bottom of the screen.
+    layout = (ROOT / "frontend" / "css" / "layout.css").read_text(encoding="utf-8")
+    shell = next(line for line in layout.splitlines() if line.startswith(".app-shell {"))
+    canvas = next(line for line in layout.splitlines() if line.startswith(".main-canvas {"))
+    assert "grid-template-rows:" in shell
+    assert "min-height: 0" in canvas
+    assert "overflow-y: auto" in next(
+        line for line in layout.splitlines() if line.startswith(".conversation {")
+    )

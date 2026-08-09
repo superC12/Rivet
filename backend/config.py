@@ -46,11 +46,11 @@ DEFAULT_RIVET: dict[str, Any] = {
         # provider:model identity as disabled_models.
         "model_priority": [],
         "classifier": {
-            # "heuristic" needs nothing installed. "dispatch" asks a small
-            # local model instead — measure it with eval/run_eval.py first.
+            # "heuristic" needs nothing installed. "dispatch" asks a model
+            # selected by the administrator — Rivet ships no model or recipe.
             "mode": "heuristic",
             "endpoint": "http://127.0.0.1:11434",
-            "model": "administrator-selected-classifier",
+            "model": "",
             "timeout_s": 5.0,
             # Unreadable classification fails upward by default.
             "fallback_lane": "ESCALATE",

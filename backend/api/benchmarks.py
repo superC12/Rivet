@@ -73,7 +73,12 @@ async def targets() -> dict:
     it selectable here.
     """
     available = ollama_providers()
-    models = [model for model in await discover_models() if model["provider"] in available]
+    # Measuring the dispatcher is reasonable, so benchmarks see it even
+    # though chat does not.
+    models = [
+        model for model in await discover_models(include_classifier=True)
+        if model["provider"] in available
+    ]
     nodes_config = settings.rivet.get("nodes", {}) or {}
     return {
         "providers": [

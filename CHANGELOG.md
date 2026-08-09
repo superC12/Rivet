@@ -8,6 +8,20 @@ Before 1.0.0, minor versions may change internal interfaces.
 
 ## [Unreleased]
 
+### Changed
+
+- Rivet no longer ships a classifier Modelfile or names any model as a
+  default. Dispatch mode now requires an administrator-selected model and
+  reports an explicit unconfigured state when none is supplied.
+
+### Fixed
+
+- An explicitly configured classifier remains available to benchmarks but is
+  excluded from assistant routing, preventing a label-only model from being
+  selected for chat.
+- Long conversations scroll inside the canvas instead of growing the page and
+  pushing the composer below the viewport.
+
 ## [1.2.0] - 2026-08-09
 
 ### Added
@@ -104,7 +118,7 @@ Before 1.0.0, minor versions may change internal interfaces.
 - Eval CLI endpoint and model arguments now take precedence over deployment
   environment variables, so evaluations cannot silently target another host.
 - Classifier failures now surface their actionable error in the diagnostics
-  popover, including the command needed to create a missing dispatch model.
+  popover, including an actionable warning when a configured classifier is missing.
 - Classifier health remains cached beyond the dashboard refresh interval,
   avoiding a blocking dispatcher probe on every poll when Ollama is offline.
 

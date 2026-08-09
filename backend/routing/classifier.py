@@ -281,6 +281,15 @@ class DispatchClassifier:
 
     async def classify(self, text: str) -> Classification:
         started = time.perf_counter()
+        if not self.model.strip():
+            return Classification(
+                lane=self.fallback_lane,
+                reason="Dispatcher is not configured",
+                source="dispatch",
+                confident=False,
+                latency_ms=0,
+                error="Select a classifier model before enabling dispatch mode.",
+            )
         payload = {
             "model": self.model,
             "system": SYSTEM_PROMPT,
@@ -318,12 +327,8 @@ class DispatchClassifier:
         """Probe the dispatcher for real, not just this process.
 
         Distinguishes the two failures that look identical from inside a
-        request. Ollama being down is obvious once you look. The dispatch
-        model never having been created is not — `ollama create` is a
-        step people skip, and the symptom is every request quietly
-        failing upward to the fallback lane at cloud prices. Naming that
-        case is the whole point of checking the tag list rather than
-        just asking whether the port answers.
+        request: the configured service being unreachable, and the model
+        selected by the administrator not being installed there.
 
         Cached briefly: the dashboard polls status on a timer, and a
         classifier that is fine now is still fine a few seconds later.
@@ -338,6 +343,15 @@ class DispatchClassifier:
         return result
 
     async def _probe(self) -> dict:
+        if not self.model.strip():
+            return {
+                "status": "unconfigured",
+                "endpoint": self.endpoint,
+                "model": "",
+                "model_installed": False,
+                "latency_ms": 0,
+                "error": "Select a classifier model before enabling dispatch mode.",
+            }
         started = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=self.timeout_s) as client:
@@ -361,9 +375,7 @@ class DispatchClassifier:
             "model": self.model,
             "model_installed": installed,
             "latency_ms": self._elapsed(started),
-            "error": None
-            if installed
-            else f"{self.model} is not installed. Create it with: ollama create {self.model} -f administrator-provided model recipe",
+            "error": None if installed else f"The configured classifier model '{self.model}' is not installed.",
         }
 
     @staticmethod
@@ -463,7 +475,7 @@ class Classifier:
     ENV_FALLBACK = ("RIVET_FALLBACK_LANE", "FALLBACK_LANE")
 
     DEFAULT_ENDPOINT = "http://127.0.0.1:11434"
-    DEFAULT_MODEL = "administrator-selected-classifier"
+    DEFAULT_MODEL = ""
     DEFAULT_TIMEOUT_S = 5.0
 
     def __init__(self, config: dict | None = None, *, honor_environment: bool = True) -> None:

@@ -6,6 +6,7 @@ from backend.actions import N8nGateway
 from backend.config import settings
 from backend.nodes import NodeManager
 from backend.providers import OllamaProvider, OpenAICompatibleProvider, OpenRouterProvider, Provider
+from backend.routing.classifier import Classifier, _tag_matches
 from backend.storage.benchmarks import BenchmarkStore
 from backend.storage.conversations import ConversationStore
 from backend.storage.database import Database
@@ -44,21 +45,49 @@ def provider_node_type(provider: Provider) -> str | None:
     return str(node.get("type", "local")).lower()
 
 
-async def discover_models(use_cache: bool = True) -> list[dict]:
+def classifier_model_name() -> str:
+    """The administrator-selected classifier model, if one is configured."""
+    return Classifier((settings.rivet.get("router", {}) or {}).get("classifier", {})).model
+
+
+def is_classifier_model(model: dict) -> bool:
+    """Keep an explicitly configured classifier out of assistant routing.
+
+    Rivet does not supply or assume a classifier model. When an
+    administrator dedicates one to dispatch, though, it may be tuned for
+    short lane labels rather than conversation and should not be selected
+    as the assistant merely because the same provider reports it.
+    """
+    if not model.get("node"):
+        return False
+    configured_model = classifier_model_name().strip()
+    return bool(configured_model) and _tag_matches(configured_model, str(model.get("id", "")))
+
+
+async def discover_models(use_cache: bool = True, include_classifier: bool = False) -> list[dict]:
     """List every model Rivet can currently reach.
 
     Cached, because this runs on the critical path of every chat request
     and an unreachable provider costs a full connection timeout. Without
     it, a homelab whose desktop is asleep pays that delay on every
     message, before routing has even started.
+
+    An explicitly configured classifier is filtered out by default.
+    Benchmarks pass `include_classifier=True`, because measuring a model
+    an administrator selected for dispatch is still reasonable.
     """
     if use_cache:
         cached = _model_cache.get()
-        if cached is not None:
-            return cached
-    models = await _discover_models_uncached()
-    _model_cache.set(models)
-    return models
+        if cached is None:
+            cached = await _discover_models_uncached()
+            _model_cache.set(cached)
+    else:
+        cached = await _discover_models_uncached()
+        _model_cache.set(cached)
+    # Filter on the way out so one cache entry serves both callers.
+    if include_classifier:
+        return list(cached)
+    return [model for model in cached if not is_classifier_model(model)]
 
 
 class _ModelCache:
@@ -107,8 +136,12 @@ async def _discover_models_uncached() -> list[dict]:
             )
             continue
         if config.get("type") == "openrouter":
-            model_id = config.get("model", "administrator-selected-cloud-model")
-            models.append({"id": model_id, "name": config.get("display_model", "OpenRouter Auto"), "provider": provider_id, "node": None, "capabilities": ["chat"]})
+            # OpenRouter's automatic route is useful, but choosing it is
+            # still a model decision. Rivet ships no predefined models, so
+            # an OpenRouter target appears only after the owner names one.
+            model_id = str(config.get("model", "")).strip()
+            if model_id:
+                models.append({"id": model_id, "name": config.get("display_model", model_id), "provider": provider_id, "node": None, "capabilities": ["chat"]})
             continue
         models.extend(await provider.list_models())
     return models
