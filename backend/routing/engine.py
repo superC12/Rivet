@@ -31,10 +31,14 @@ __all__ = ["RouteDecision", "RoutingEngine", "trace_step"]
 class RoutingEngine:
     def __init__(self, config: dict, models: list[dict], classifier: Classifier | None = None) -> None:
         self.config = config
-        self.models = models
         self.nodes = config.get("nodes", {}) or {}
         self.policy = RoutingPolicy.from_config(config)
         router_config = config.get("router", {}) or {}
+        disabled_models = set(router_config.get("disabled_models", []) or [])
+        self.models = [
+            model for model in models
+            if f'{model.get("provider", "")}:{model.get("id", "")}' not in disabled_models
+        ]
         self.classifier = classifier or Classifier(router_config.get("classifier", {}))
         self.engine_name = str(router_config.get("engine", "builtin")).lower()
         if self.engine_name == "switchyard":

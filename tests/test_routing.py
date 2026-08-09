@@ -133,6 +133,17 @@ def test_no_models_available_is_an_error():
     assert decision.route == "ERROR"
 
 
+def test_disabled_models_are_removed_from_automatic_and_manual_routing():
+    routing_config = {"router": {"disabled_models": ["local:small"]}, "nodes": NODES}
+    engine = RoutingEngine(routing_config, MODELS)
+
+    automatic = engine.select(Classification(lane="LOCAL", reason="simple", source="test"))
+    manual = engine.select(Classification(lane="LOCAL", reason="simple", source="test"), model_override="small")
+
+    assert automatic.model != "small"
+    assert manual.route == "ERROR"
+
+
 # --- affinity -------------------------------------------------------
 
 

@@ -39,6 +39,9 @@ DEFAULT_RIVET: dict[str, Any] = {
         "fallback": "openrouter-main",
         "privacy_mode": "standard",
         "session_affinity": True,
+        # Qualified as provider:model so equal model names on two servers
+        # can be enabled independently.
+        "disabled_models": [],
         "classifier": {
             # "heuristic" needs nothing installed. "dispatch" asks a small
             # local model instead — measure it with eval/run_eval.py first.

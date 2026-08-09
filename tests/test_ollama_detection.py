@@ -135,6 +135,26 @@ def test_provider_api_reports_the_effective_detected_endpoint(monkeypatch):
     assert result["detected"] is True
 
 
+def test_model_api_marks_onboarding_exclusions_without_hiding_discovery(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend.api import models as models_api
+    from backend.main import app
+
+    async def discovered():
+        return [
+            {"id": "small", "name": "Small", "provider": "local", "node": "homelab"},
+            {"id": "large", "name": "Large", "provider": "local", "node": "homelab"},
+        ]
+
+    monkeypatch.setattr(models_api, "discover_models", discovered)
+    monkeypatch.setitem(models_api.settings.rivet["router"], "disabled_models", ["local:small"])
+    with TestClient(app) as client:
+        result = client.get("/api/models").json()
+
+    assert [(model["id"], model["enabled"]) for model in result] == [("small", False), ("large", True)]
+
+
 def test_explicit_provider_refresh_bypasses_negative_health_cache(monkeypatch):
     from fastapi.testclient import TestClient
 

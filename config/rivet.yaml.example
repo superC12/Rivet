@@ -5,6 +5,9 @@ router:
   fallback: openrouter-main
   privacy_mode: standard
   session_affinity: true
+  # Models excluded during onboarding or later in Settings → Routing.
+  # Use provider:model so identical tags on different servers remain distinct.
+  disabled_models: []
 
   classifier:
     # heuristic - deterministic patterns, needs nothing installed.

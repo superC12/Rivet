@@ -10,6 +10,12 @@ Before 1.0.0, minor versions may change internal interfaces.
 
 ## [1.1.1] - 2026-08-09
 
+### Added
+
+- Onboarding model rows are now direct include/exclude controls with clear
+  enabled, muted, and crossed-out states. Choices survive back navigation and
+  can be changed later in Settings → Routing.
+
 ### Changed
 
 - Benchmark editing now uses compact disclosures for execution targets,
@@ -24,6 +30,9 @@ Before 1.0.0, minor versions may change internal interfaces.
   the narrower settings pane.
 - The general Settings save footer is hidden while editing benchmarks, leaving
   only the relevant Delete, Save, and Run actions visible.
+- Model choices made during onboarding now persist as provider-qualified
+  routing exclusions and are enforced by automatic routing, manual model
+  selection, and the composer route menu.
 
 ## [1.1.0] - 2026-08-09
 

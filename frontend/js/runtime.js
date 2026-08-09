@@ -54,7 +54,7 @@ export class RouteControl {
     this.providers = providers;
     const active = providers.filter(provider => provider.status === "online");
     const activeIds = new Set(active.map(provider => provider.id));
-    this.models = models.filter(model => activeIds.has(model.provider));
+    this.models = models.filter(model => model.enabled !== false && activeIds.has(model.provider));
     const local = active.some(provider => providerKind(provider) === "local");
     const cloud = active.some(provider => providerKind(provider) === "cloud");
     const entries = [];

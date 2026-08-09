@@ -59,5 +59,10 @@ jobs:
           else
             notes=(--generate-notes)
           fi
-          gh release create "${GITHUB_REF_NAME}" rivet.tar.gz rivet.tar.gz.sha256 \
-            --title "Rivet ${GITHUB_REF_NAME}" --verify-tag "${notes[@]}"
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release edit "${GITHUB_REF_NAME}" --title "Rivet ${GITHUB_REF_NAME}" "${notes[@]}"
+            gh release upload "${GITHUB_REF_NAME}" rivet.tar.gz rivet.tar.gz.sha256 --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" rivet.tar.gz rivet.tar.gz.sha256 \
+              --title "Rivet ${GITHUB_REF_NAME}" --verify-tag "${notes[@]}"
+          fi

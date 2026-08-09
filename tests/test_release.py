@@ -136,3 +136,15 @@ def test_benchmark_editor_uses_compact_collapsible_sections():
     assert 'classList.toggle("benchmarks-active", name === "benchmarks")' in settings
     assert ".settings-dialog.benchmarks-active .settings-footer { display: none; }" in styles
     assert "grid-template-columns: 96px 120px 1fr 120px 128px 28px" not in styles
+
+
+def test_onboarding_model_rows_are_real_persisted_controls():
+    onboarding = (ROOT / "frontend" / "js" / "onboarding.js").read_text(encoding="utf-8")
+    runtime = (ROOT / "frontend" / "js" / "runtime.js").read_text(encoding="utf-8")
+    styles = (ROOT / "frontend" / "css" / "motion.css").read_text(encoding="utf-8")
+
+    assert 'document.createElement("button")' in onboarding
+    assert 'item.setAttribute("aria-pressed"' in onboarding
+    assert "disabled_models: disabledModels" in onboarding
+    assert "model.enabled !== false" in runtime
+    assert ".setup-model.excluded strong" in styles

@@ -4,6 +4,7 @@ import asyncio
 
 from fastapi import APIRouter
 
+from backend.config import settings
 from backend.nodes.health import cache as health_cache
 from .dependencies import discover_models, invalidate_model_cache, provider_node_type, providers
 
@@ -12,7 +13,14 @@ router = APIRouter(prefix="/api")
 
 @router.get("/models")
 async def models() -> list[dict]:
-    return await discover_models()
+    disabled = set(settings.rivet.get("router", {}).get("disabled_models", []) or [])
+    return [
+        {
+            **model,
+            "enabled": f'{model.get("provider", "")}:{model.get("id", "")}' not in disabled,
+        }
+        for model in await discover_models()
+    ]
 
 
 @router.get("/providers")

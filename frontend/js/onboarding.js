@@ -6,6 +6,7 @@ export class Onboarding {
     this.onComplete = onComplete;
     this.step = 1;
     this.instanceName = "Your assistant";
+    this.modelStates = new Map();
     this.progress = document.querySelector("#onboarding-progress");
     for (let index = 1; index <= 5; index++) this.progress.append(document.createElement("i"));
     overlay.querySelectorAll(".next-step").forEach(button => button.addEventListener("click", () => this.go(this.step + 1)));
@@ -59,20 +60,42 @@ export class Onboarding {
     [...list.querySelectorAll(".setup-model:not(:first-child)")].forEach(item => item.remove());
     try {
       const models = await this.api("/api/models");
-      models.slice(0, 5).forEach(model => {
-        const item = document.createElement("div"); item.className = "setup-model";
+      models.forEach(model => {
+        const key = `${model.provider}:${model.id}`;
+        if (!this.modelStates.has(key)) this.modelStates.set(key, model.enabled !== false);
+        const item = document.createElement("button"); item.type = "button"; item.className = "setup-model";
+        item.dataset.modelKey = key;
         const dot = document.createElement("i"); const copy = document.createElement("div");
         const name = document.createElement("strong"); name.textContent = model.name;
         const meta = document.createElement("span"); meta.textContent = `${model.node ? "Local" : "Cloud"} · ${model.node || model.provider}`;
-        copy.append(name, meta); item.append(dot, copy); list.append(item);
+        const state = document.createElement("b");
+        const render = () => {
+          const enabled = this.modelStates.get(key) !== false;
+          item.classList.toggle("excluded", !enabled);
+          item.setAttribute("aria-pressed", String(enabled));
+          item.setAttribute("aria-label", `${enabled ? "Exclude" : "Include"} ${model.name} from automatic routing`);
+          state.textContent = enabled ? "✓" : "Off";
+          this.updateModelChoiceNote();
+        };
+        item.addEventListener("click", () => { this.modelStates.set(key, this.modelStates.get(key) === false); render(); });
+        copy.append(name, meta); item.append(dot, copy, state); list.append(item); render();
       });
+      if (!models.length) document.querySelector("#model-choice-note").textContent = "No models detected yet. You can connect one later in Settings.";
     } catch { /* Auto route remains a useful default. */ }
+  }
+
+  updateModelChoiceNote() {
+    if (!this.modelStates.size) return;
+    const enabled = [...this.modelStates.values()].filter(Boolean).length;
+    const total = this.modelStates.size;
+    document.querySelector("#model-choice-note").textContent = `${enabled} of ${total} detected model${total === 1 ? "" : "s"} in automatic rotation.`;
   }
 
   async finish() {
     const name = document.querySelector("#setup-name").value.trim();
     const instructions = document.querySelector("#setup-instructions").value.trim();
-    const config = await this.api("/api/onboarding", { method: "POST", body: JSON.stringify({ assistant: { name, instructions } }) });
+    const disabledModels = [...this.modelStates].filter(([, enabled]) => !enabled).map(([key]) => key);
+    const config = await this.api("/api/onboarding", { method: "POST", body: JSON.stringify({ assistant: { name, instructions }, router: { disabled_models: disabledModels } }) });
     this.overlay.style.opacity = "0";
     this.overlay.style.transition = "opacity .65s ease";
     setTimeout(() => { this.overlay.hidden = true; this.overlay.style = ""; }, 650);

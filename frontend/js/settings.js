@@ -50,8 +50,8 @@ export class SettingsPanel {
     document.querySelector("#app").classList.remove("sidebar-open");
     this.dialog.showModal(); this.section(section);
     try {
-      const [config, nodes, providers, status] = await Promise.all([this.api("/api/settings"), this.api("/api/nodes"), this.api("/api/providers"), this.api("/api/status")]);
-      this.config = config; this.populate(config); this.renderCompute(nodes); this.renderConnections(providers);
+      const [config, nodes, providers, status, models] = await Promise.all([this.api("/api/settings"), this.api("/api/nodes"), this.api("/api/providers"), this.api("/api/status"), this.api("/api/models")]);
+      this.config = config; this.populate(config); this.renderCompute(nodes); this.renderConnections(providers); this.renderRoutingModels(models);
       // Read the running version rather than hardcoding it, so About
       // cannot drift out of step with the build it is describing.
       document.querySelector("#about-version").textContent = `Version ${status.version}`;
@@ -183,6 +183,20 @@ export class SettingsPanel {
     });
   }
 
+  renderRoutingModels(models) {
+    const list = document.querySelector("#settings-routing-models");
+    list.replaceChildren();
+    if (!models.length) { list.textContent = "No models detected."; return; }
+    models.forEach(model => {
+      const row = document.createElement("label"); row.className = "routing-model-row";
+      const copy = document.createElement("span"); const name = document.createElement("b"); name.textContent = model.name;
+      const source = document.createElement("small"); source.textContent = model.node || model.provider;
+      const toggle = document.createElement("input"); toggle.type = "checkbox"; toggle.checked = model.enabled !== false;
+      toggle.dataset.modelKey = `${model.provider}:${model.id}`;
+      copy.append(name, source); row.append(copy, toggle); list.append(row);
+    });
+  }
+
   async refreshProviders(button) {
     button.disabled = true;
     const original = button.textContent;
@@ -288,7 +302,7 @@ export class SettingsPanel {
         accent: { mode: document.querySelector("#settings-accent-mode").value, color: this.accentPicker.value },
         motion: { mode: document.querySelector("#settings-motion").value, intensity: Number(document.querySelector("#settings-intensity").value), speed: Number(document.querySelector("#settings-speed").value) },
       },
-      router: { strategy: document.querySelector("#settings-strategy").value, prefer_local: document.querySelector("#settings-prefer-local").checked, session_affinity: document.querySelector("#settings-affinity").checked, privacy_mode: document.querySelector("#settings-local-only").checked ? "local_only" : "standard" },
+      router: { strategy: document.querySelector("#settings-strategy").value, prefer_local: document.querySelector("#settings-prefer-local").checked, session_affinity: document.querySelector("#settings-affinity").checked, privacy_mode: document.querySelector("#settings-local-only").checked ? "local_only" : "standard", disabled_models: [...document.querySelectorAll("#settings-routing-models input[data-model-key]")].filter(input => !input.checked).map(input => input.dataset.modelKey) },
       actions: { n8n: { enabled: document.querySelector("#settings-n8n-enabled").checked } },
     };
     // Only send the endpoint when the user actually typed one; an empty
