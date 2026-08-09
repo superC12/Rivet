@@ -152,14 +152,16 @@ def test_missing_conversation_is_a_404():
     assert response.status_code == 404
 
 
-def test_frontend_assets_must_revalidate():
-    # Without this, upgrading Rivet leaves browsers running stale JS
-    # against a new backend until someone hard-reloads.
+def test_frontend_assets_cannot_be_reused_across_an_upgrade():
+    # Revalidation still allowed a reverse proxy/browser combination to
+    # retain an old ES module beside new markup. The frontend is small;
+    # never storing it is safer than a split-version interface.
     with TestClient(app) as client:
         for path in ("/", "/static/js/app.js", "/static/css/tokens.css"):
             response = client.get(path)
             assert response.status_code == 200, path
-            assert response.headers.get("cache-control") == "no-cache", path
+            assert response.headers.get("cache-control") == "no-store, max-age=0", path
+            assert response.headers.get("pragma") == "no-cache", path
 
 
 # --- fallback behaviour ----------------------------------------------

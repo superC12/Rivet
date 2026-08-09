@@ -8,6 +8,22 @@ Before 1.0.0, minor versions may change internal interfaces.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-09
+
+### Added
+
+- Models can be reordered by drag and drop during onboarding and later in
+  Settings → Routing. The saved provider-qualified order controls selection
+  priority within each routing tier; Alt+Arrow keys provide the same control
+  from the keyboard.
+- About now contains a subtle, non-destructive path back through onboarding;
+  the setup journey can be revisited without changing the active instance.
+
+### Fixed
+
+- Frontend assets are now served with a strict no-store policy so an upgrade
+  cannot combine new HTML with stale JavaScript from a browser or proxy cache.
+
 ## [1.1.1] - 2026-08-09
 
 ### Added
@@ -369,7 +385,8 @@ Initial release.
   `prefers-reduced-motion`.
 - Docker support.
 
-[Unreleased]: https://github.com/superC12/Rivet/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/superC12/Rivet/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/superC12/Rivet/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/superC12/Rivet/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/superC12/Rivet/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/superC12/Rivet/compare/v1.0.0...v1.0.1

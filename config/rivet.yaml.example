@@ -8,6 +8,9 @@ router:
   # Models excluded during onboarding or later in Settings → Routing.
   # Use provider:model so identical tags on different servers remain distinct.
   disabled_models: []
+  # Highest priority first. Models missing from this list follow in their
+  # provider-defined order.
+  model_priority: []
 
   classifier:
     # heuristic - deterministic patterns, needs nothing installed.

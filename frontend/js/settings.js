@@ -189,11 +189,36 @@ export class SettingsPanel {
     if (!models.length) { list.textContent = "No models detected."; return; }
     models.forEach(model => {
       const row = document.createElement("label"); row.className = "routing-model-row";
+      row.draggable = true; row.dataset.modelKey = `${model.provider}:${model.id}`;
+      const handle = document.createElement("span"); handle.className = "routing-model-handle"; handle.textContent = "⠿"; handle.setAttribute("aria-hidden", "true");
       const copy = document.createElement("span"); const name = document.createElement("b"); name.textContent = model.name;
       const source = document.createElement("small"); source.textContent = model.node || model.provider;
       const toggle = document.createElement("input"); toggle.type = "checkbox"; toggle.checked = model.enabled !== false;
       toggle.dataset.modelKey = `${model.provider}:${model.id}`;
-      copy.append(name, source); row.append(copy, toggle); list.append(row);
+      row.addEventListener("dragstart", event => {
+        this.draggingRoutingModel = row;
+        row.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", row.dataset.modelKey);
+      });
+      row.addEventListener("dragover", event => {
+        if (!this.draggingRoutingModel || this.draggingRoutingModel === row) return;
+        event.preventDefault();
+        const bounds = row.getBoundingClientRect();
+        list.insertBefore(this.draggingRoutingModel, event.clientY < bounds.top + bounds.height / 2 ? row : row.nextSibling);
+      });
+      row.addEventListener("drop", event => event.preventDefault());
+      row.addEventListener("dragend", () => { row.classList.remove("dragging"); this.draggingRoutingModel = null; });
+      row.addEventListener("keydown", event => {
+        if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+        event.preventDefault();
+        const sibling = event.key === "ArrowUp" ? row.previousElementSibling : row.nextElementSibling;
+        if (!sibling?.dataset.modelKey) return;
+        if (event.key === "ArrowUp") list.insertBefore(row, sibling);
+        else list.insertBefore(sibling, row);
+        toggle.focus();
+      });
+      copy.append(name, source); row.append(handle, copy, toggle); list.append(row);
     });
   }
 
@@ -302,7 +327,7 @@ export class SettingsPanel {
         accent: { mode: document.querySelector("#settings-accent-mode").value, color: this.accentPicker.value },
         motion: { mode: document.querySelector("#settings-motion").value, intensity: Number(document.querySelector("#settings-intensity").value), speed: Number(document.querySelector("#settings-speed").value) },
       },
-      router: { strategy: document.querySelector("#settings-strategy").value, prefer_local: document.querySelector("#settings-prefer-local").checked, session_affinity: document.querySelector("#settings-affinity").checked, privacy_mode: document.querySelector("#settings-local-only").checked ? "local_only" : "standard", disabled_models: [...document.querySelectorAll("#settings-routing-models input[data-model-key]")].filter(input => !input.checked).map(input => input.dataset.modelKey) },
+      router: { strategy: document.querySelector("#settings-strategy").value, prefer_local: document.querySelector("#settings-prefer-local").checked, session_affinity: document.querySelector("#settings-affinity").checked, privacy_mode: document.querySelector("#settings-local-only").checked ? "local_only" : "standard", disabled_models: [...document.querySelectorAll("#settings-routing-models input[data-model-key]")].filter(input => !input.checked).map(input => input.dataset.modelKey), model_priority: [...document.querySelectorAll("#settings-routing-models .routing-model-row[data-model-key]")].map(row => row.dataset.modelKey) },
       actions: { n8n: { enabled: document.querySelector("#settings-n8n-enabled").checked } },
     };
     // Only send the endpoint when the user actually typed one; an empty

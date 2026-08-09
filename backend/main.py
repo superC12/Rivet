@@ -27,23 +27,19 @@ from backend.config import ROOT, settings
 FRONTEND = ROOT / "frontend"
 
 
-class RevalidatingStaticFiles(StaticFiles):
-    """Serve the frontend with `Cache-Control: no-cache`.
+class FreshStaticFiles(StaticFiles):
+    """Never reuse frontend files across a Rivet upgrade.
 
-    Not "do not cache" — "check with me before reusing". Without it the
-    browser caches JS and CSS heuristically, and upgrading Rivet leaves
-    people running a stale interface against a new backend until they
-    manually hard-reload. That failure is invisible and infuriating: the
-    served file is correct, the loaded file is not.
-
-    The cost is one conditional request per asset, answered with a 304.
-    On the LAN or Tailscale link Rivet is designed for, that is nothing
-    next to shipping a broken upgrade.
+    `no-cache` still permits a browser or reverse proxy to retain a module
+    and revalidate it incorrectly. That produced a split UI in practice:
+    new onboarding HTML with old onboarding JavaScript. Rivet's frontend is
+    small, so a fresh transfer is a better trade than a silently inert UI.
     """
 
     def file_response(self, *args, **kwargs) -> Response:
         response = super().file_response(*args, **kwargs)
-        response.headers["Cache-Control"] = "no-cache"
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
         return response
 
 
@@ -66,16 +62,16 @@ app.include_router(benchmarks.router)
 app.include_router(settings_api.router)
 app.include_router(conversations.router)
 app.include_router(chat.router)
-app.mount("/static", RevalidatingStaticFiles(directory=FRONTEND), name="static")
+app.mount("/static", FreshStaticFiles(directory=FRONTEND), name="static")
 
 # The shell names every asset the app loads, so a stale copy of it
 # pins a stale interface no matter how fresh those assets are.
-NO_CACHE = {"Cache-Control": "no-cache"}
+NO_STORE = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"}
 
 
 @app.get("/", include_in_schema=False)
 async def index() -> FileResponse:
-    return FileResponse(FRONTEND / "index.html", headers=NO_CACHE)
+    return FileResponse(FRONTEND / "index.html", headers=NO_STORE)
 
 
 @app.get("/{path:path}", include_in_schema=False)
@@ -87,5 +83,5 @@ async def frontend_fallback(path: str) -> FileResponse:
         raise HTTPException(404, "Not found")
     candidate = (FRONTEND / path).resolve()
     if FRONTEND.resolve() in candidate.parents and candidate.is_file():
-        return FileResponse(candidate, headers=NO_CACHE)
-    return FileResponse(FRONTEND / "index.html", headers=NO_CACHE)
+        return FileResponse(candidate, headers=NO_STORE)
+    return FileResponse(FRONTEND / "index.html", headers=NO_STORE)

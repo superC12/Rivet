@@ -149,10 +149,11 @@ def test_model_api_marks_onboarding_exclusions_without_hiding_discovery(monkeypa
 
     monkeypatch.setattr(models_api, "discover_models", discovered)
     monkeypatch.setitem(models_api.settings.rivet["router"], "disabled_models", ["local:small"])
+    monkeypatch.setitem(models_api.settings.rivet["router"], "model_priority", ["local:large", "local:small"])
     with TestClient(app) as client:
         result = client.get("/api/models").json()
 
-    assert [(model["id"], model["enabled"]) for model in result] == [("small", False), ("large", True)]
+    assert [(model["id"], model["enabled"]) for model in result] == [("large", True), ("small", False)]
 
 
 def test_explicit_provider_refresh_bypasses_negative_health_cache(monkeypatch):

@@ -144,6 +144,23 @@ def test_disabled_models_are_removed_from_automatic_and_manual_routing():
     assert manual.route == "ERROR"
 
 
+def test_saved_model_priority_wins_within_the_same_routing_tier():
+    models = [
+        MODELS[0],
+        {"id": "preferred", "name": "Preferred", "provider": "local", "node": "homelab"},
+    ]
+    routing_config = {
+        "router": {"model_priority": ["local:preferred", "local:small"]},
+        "nodes": NODES,
+    }
+
+    decision = RoutingEngine(routing_config, models).select(
+        Classification(lane="LOCAL", reason="simple", source="test")
+    )
+
+    assert decision.model == "preferred"
+
+
 # --- affinity -------------------------------------------------------
 
 

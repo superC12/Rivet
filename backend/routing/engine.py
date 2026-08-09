@@ -35,10 +35,27 @@ class RoutingEngine:
         self.policy = RoutingPolicy.from_config(config)
         router_config = config.get("router", {}) or {}
         disabled_models = set(router_config.get("disabled_models", []) or [])
-        self.models = [
+        eligible_models = [
             model for model in models
             if f'{model.get("provider", "")}:{model.get("id", "")}' not in disabled_models
         ]
+        priority = {
+            key: index
+            for index, key in enumerate(router_config.get("model_priority", []) or [])
+        }
+        if priority:
+            self.models = [
+                {
+                    **model,
+                    "priority": priority.get(
+                        f'{model.get("provider", "")}:{model.get("id", "")}',
+                        len(priority) + int(model.get("priority", 100)),
+                    ),
+                }
+                for model in eligible_models
+            ]
+        else:
+            self.models = eligible_models
         self.classifier = classifier or Classifier(router_config.get("classifier", {}))
         self.engine_name = str(router_config.get("engine", "builtin")).lower()
         if self.engine_name == "switchyard":

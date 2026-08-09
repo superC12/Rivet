@@ -104,6 +104,26 @@ const runtime = new RuntimeDashboard({
 });
 settings = new SettingsPanel({ api, onSave: config => { applyConfig(config); runtime.refresh(config); } });
 const onboarding = new Onboarding({ overlay: document.querySelector("#onboarding"), api, atmosphere: onboardingAtmosphere, onComplete: config => { applyConfig(config); runtime.refresh(config); } });
+const aboutMark = document.querySelector("#about-mark");
+const returnDialog = document.querySelector("#onboarding-return-dialog");
+let markClicks = [];
+aboutMark.addEventListener("click", () => {
+  const now = performance.now();
+  markClicks = [...markClicks.filter(time => now - time < 2400), now];
+  aboutMark.classList.remove("awaken");
+  void aboutMark.offsetWidth;
+  aboutMark.classList.add("awaken");
+  if (markClicks.length < 5) return;
+  markClicks = [];
+  returnDialog.showModal();
+  document.querySelector("#confirm-onboarding-return").focus();
+});
+document.querySelector("#cancel-onboarding-return").addEventListener("click", () => returnDialog.close());
+document.querySelector("#confirm-onboarding-return").addEventListener("click", async () => {
+  returnDialog.close();
+  document.querySelector("#settings-dialog").close();
+  await onboarding.openPreview();
+});
 
 document.querySelector("#motion-status").addEventListener("click", async () => {
   const modes = ["static", "ambient", "dynamic"];

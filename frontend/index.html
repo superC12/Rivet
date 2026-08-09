@@ -88,6 +88,7 @@
 
   <section class="onboarding" id="onboarding" aria-label="Assistant setup" hidden>
     <canvas id="onboarding-atmosphere" aria-hidden="true"></canvas>
+    <button class="onboarding-preview-close" id="close-onboarding-preview" type="button" aria-label="Close setup preview" hidden>×</button>
     <div class="onboarding-card">
       <div class="onboarding-progress" id="onboarding-progress" aria-label="Setup progress"></div>
       <div class="onboarding-step active" data-step="1">
@@ -123,7 +124,7 @@ Don't pretend actions succeeded.</textarea></label>
         <p class="onboarding-kicker">04 — MODELS</p>
         <h1>Choose how it thinks.</h1>
         <div id="setup-models" class="setup-models"><div class="setup-model setup-model-auto selected"><i></i><div><strong>Auto Route</strong><span id="onboarding-auto-copy">Recommended · your assistant chooses the right source</span></div><b>✓</b></div></div>
-        <p class="field-note model-choice-note" id="model-choice-note" aria-live="polite">Click a model to include or exclude it from automatic routing.</p>
+        <p class="field-note model-choice-note" id="model-choice-note" aria-live="polite">Click to include or exclude. Drag to set priority; the top model is tried first.</p>
         <div class="onboarding-actions"><button class="text-button previous-step">← Back</button><button class="text-button next-step">Activate →</button></div>
       </div>
       <div class="onboarding-step activation" data-step="5">
@@ -171,7 +172,7 @@ Don't pretend actions succeeded.</textarea></label>
           <label class="toggle-row"><span><b>Prefer local</b><small>Use local compute when it is capable.</small></span><input type="checkbox" id="settings-prefer-local"></label>
           <label class="toggle-row"><span><b>Session affinity</b><small>Keep follow-up turns on the same model.</small></span><input type="checkbox" id="settings-affinity"></label>
           <label class="toggle-row"><span><b>Local-only privacy</b><small>Never send message content to cloud providers.</small></span><input type="checkbox" id="settings-local-only"></label>
-          <div class="routing-model-access"><div class="routing-model-access-head"><b>Models in rotation</b><small>Excluded models remain installed but will not receive chats.</small></div><div id="settings-routing-models" class="routing-model-list"></div></div>
+          <div class="routing-model-access"><div class="routing-model-access-head"><b>Models in rotation</b><small>Drag to change priority. Excluded models remain installed but will not receive chats.</small></div><div id="settings-routing-models" class="routing-model-list"></div></div>
         </section>
         <section class="settings-section" data-section="connections">
           <p class="settings-kicker">SERVICES</p><h2>Connections</h2><p class="section-intro">Secrets stay in your environment and are never returned here.</p>
@@ -259,11 +260,22 @@ Don't pretend actions succeeded.</textarea></label>
           <div class="info-rows"><div><span>API</span><code>/api</code></div><div><span>Health</span><code>/health</code></div><div><span>Database</span><code>data/rivet.db</code></div><div><span>Configuration</span><code>config/*.yaml</code></div></div>
         </section>
           <section class="settings-section about-section" data-section="about">
-          <p class="about-mark" id="about-mark">R</p><h2 id="about-platform">Rivet</h2><p id="about-version">Version —</p><p class="about-copy">Lightweight AI orchestration.<br>One assistant. Any compute.</p>
+          <button class="about-mark" id="about-mark" type="button" data-tooltip="Some marks remember their beginning.">R</button><h2 id="about-platform">Rivet</h2><p id="about-version">Version —</p><p class="about-copy">Lightweight AI orchestration.<br>One assistant. Any compute.</p>
           </section>
         </div>
         <footer class="settings-footer"><span id="settings-saved"></span><button id="save-settings">Save changes</button></footer>
       </div>
+    </div>
+  </dialog>
+
+  <dialog class="prestige-dialog" id="onboarding-return-dialog" aria-labelledby="onboarding-return-title">
+    <div class="prestige-rays" aria-hidden="true"></div>
+    <div class="prestige-glow" aria-hidden="true"></div>
+    <div class="prestige-content">
+      <p class="prestige-kicker">A QUIET BEGINNING</p>
+      <h2 id="onboarding-return-title">Return to the beginning?</h2>
+      <p>Visit setup again as a preview. Everything you have now stays exactly where it is.</p>
+      <div class="prestige-actions"><button id="cancel-onboarding-return" type="button">Stay here</button><button id="confirm-onboarding-return" type="button">Open setup <span>→</span></button></div>
     </div>
   </dialog>
 

@@ -13,13 +13,27 @@ router = APIRouter(prefix="/api")
 
 @router.get("/models")
 async def models() -> list[dict]:
-    disabled = set(settings.rivet.get("router", {}).get("disabled_models", []) or [])
+    router_config = settings.rivet.get("router", {}) or {}
+    disabled = set(router_config.get("disabled_models", []) or [])
+    priority = {key: index for index, key in enumerate(router_config.get("model_priority", []) or [])}
+    discovered = await discover_models()
+    if priority:
+        discovered = [
+            model
+            for _, model in sorted(
+                enumerate(discovered),
+                key=lambda pair: priority.get(
+                    f'{pair[1].get("provider", "")}:{pair[1].get("id", "")}',
+                    len(priority) + pair[0],
+                ),
+            )
+        ]
     return [
         {
             **model,
             "enabled": f'{model.get("provider", "")}:{model.get("id", "")}' not in disabled,
         }
-        for model in await discover_models()
+        for model in discovered
     ]
 
 

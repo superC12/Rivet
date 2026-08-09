@@ -146,5 +146,28 @@ def test_onboarding_model_rows_are_real_persisted_controls():
     assert 'document.createElement("button")' in onboarding
     assert 'item.setAttribute("aria-pressed"' in onboarding
     assert "disabled_models: disabledModels" in onboarding
+    assert "model_priority: this.modelPriority" in onboarding
+    assert 'item.addEventListener("dragstart"' in onboarding
+    assert 'event.altKey' in onboarding
     assert "model.enabled !== false" in runtime
     assert ".setup-model.excluded strong" in styles
+
+
+def test_frontend_assets_cannot_survive_an_upgrade_in_browser_cache():
+    main = (ROOT / "backend" / "main.py").read_text(encoding="utf-8")
+
+    assert '"Cache-Control"] = "no-store, max-age=0"' in main
+    assert 'NO_STORE = {"Cache-Control": "no-store, max-age=0"' in main
+
+
+def test_about_easter_egg_opens_a_non_destructive_onboarding_preview():
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    app = (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    onboarding = (ROOT / "frontend" / "js" / "onboarding.js").read_text(encoding="utf-8")
+
+    assert 'id="onboarding-return-dialog"' in markup
+    assert 'data-tooltip="Some marks remember their beginning."' in markup
+    assert "if (markClicks.length < 5) return" in app
+    assert "await onboarding.openPreview()" in app
+    assert "if (this.previewMode)" in onboarding
+    assert "this.closePreview();\n      return;" in onboarding

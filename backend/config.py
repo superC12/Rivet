@@ -42,6 +42,9 @@ DEFAULT_RIVET: dict[str, Any] = {
         # Qualified as provider:model so equal model names on two servers
         # can be enabled independently.
         "disabled_models": [],
+        # First entry wins within a routing tier. Entries use the same
+        # provider:model identity as disabled_models.
+        "model_priority": [],
         "classifier": {
             # "heuristic" needs nothing installed. "dispatch" asks a small
             # local model instead — measure it with eval/run_eval.py first.
