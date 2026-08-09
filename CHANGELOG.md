@@ -8,6 +8,8 @@ Before 1.0.0, minor versions may change internal interfaces.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-09
+
 ### Changed
 
 - Rivet no longer ships a classifier Modelfile or names any model as a
@@ -399,7 +401,8 @@ Initial release.
   `prefers-reduced-motion`.
 - Docker support.
 
-[Unreleased]: https://github.com/superC12/Rivet/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/superC12/Rivet/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/superC12/Rivet/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/superC12/Rivet/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/superC12/Rivet/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/superC12/Rivet/compare/v1.0.1...v1.1.0
