@@ -13,6 +13,7 @@ export class Onboarding {
     this.previewMode = false;
     this.defaultInstructions = document.querySelector("#setup-instructions").value;
     this.progress = document.querySelector("#onboarding-progress");
+    this.nameNext = overlay.querySelector('.onboarding-step[data-step="1"] .next-step');
     for (let index = 1; index <= 5; index++) this.progress.append(document.createElement("i"));
     overlay.querySelectorAll(".next-step").forEach(button => button.addEventListener("click", () => this.go(this.step + 1)));
     overlay.querySelectorAll(".previous-step").forEach(button => button.addEventListener("click", () => this.go(this.step - 1)));
@@ -26,6 +27,7 @@ export class Onboarding {
     const chosen = value.trim();
     const name = chosen || "Your assistant";
     this.instanceName = name;
+    this.nameNext.disabled = !chosen;
     if (syncInput) document.querySelector("#setup-name").value = value;
     document.querySelector("#onboarding").setAttribute("aria-label", `${name} setup`);
     document.querySelector("#onboarding-platform").textContent = name.toUpperCase();

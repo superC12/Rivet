@@ -1,0 +1,120 @@
+.settings-dialog.origin-unfold .settings-shell {
+  transform-origin: var(--panel-origin-x, 50%) var(--panel-origin-y, 50%);
+  animation: panel-origin-unfold .24s cubic-bezier(.2, .78, .2, 1) both;
+}
+
+@keyframes panel-origin-unfold {
+  from {
+    opacity: .88;
+    transform: scale(.982);
+    filter: blur(2.5px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+.connection-heartbeat {
+  --heartbeat-period: 2.4s;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 14px;
+  margin-left: 3px;
+  overflow: hidden;
+  color: #52e29e;
+  opacity: .72;
+}
+
+.connection-heartbeat[hidden] { display: none; }
+
+.connection-heartbeat svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.heartbeat-baseline,
+.heartbeat-trace {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.heartbeat-baseline { opacity: .12; }
+.heartbeat-trace {
+  stroke-dasharray: 18 46;
+  animation: connection-heartbeat var(--heartbeat-period) linear infinite;
+}
+
+@keyframes connection-heartbeat {
+  from { stroke-dashoffset: 64; opacity: .32; }
+  18% { opacity: .95; }
+  34% { opacity: .42; }
+  to { stroke-dashoffset: -64; opacity: .26; }
+}
+
+.connection-heartbeat.degraded {
+  color: #e4b45f;
+}
+
+.connection-heartbeat.degraded .heartbeat-trace {
+  animation-name: connection-heartbeat-irregular;
+  animation-timing-function: steps(12, end);
+}
+
+@keyframes connection-heartbeat-irregular {
+  0% { stroke-dashoffset: 64; opacity: .18; transform: translateY(0); }
+  14% { opacity: 1; transform: translateY(-1px); }
+  23% { opacity: .2; transform: translateY(1px); }
+  48% { opacity: .84; transform: translateY(0); }
+  56% { opacity: .12; transform: translateY(1px); }
+  100% { stroke-dashoffset: -64; opacity: .18; transform: translateY(0); }
+}
+
+.connection-heartbeat.offline {
+  color: #ff5b67;
+}
+
+.connection-heartbeat.offline .heartbeat-trace {
+  animation: connection-interruption .9s ease-out 1 forwards;
+}
+
+@keyframes connection-interruption {
+  0% { stroke-dashoffset: 64; opacity: .2; }
+  35% { stroke-dashoffset: 22; opacity: 1; }
+  58% { stroke-dashoffset: 14; opacity: .08; }
+  100% { stroke-dashoffset: 14; opacity: 0; }
+}
+
+.broken-heart {
+  display: none;
+  position: relative;
+  color: #ff5b67;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.broken-heart::after {
+  content: "";
+  position: absolute;
+  inset: 1px 6px 0 auto;
+  height: 13px;
+  border-left: 1px solid currentColor;
+  transform: rotate(28deg);
+  transform-origin: center;
+}
+
+.connection-heartbeat.broken svg { display: none; }
+.connection-heartbeat.broken .broken-heart { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-dialog.origin-unfold .settings-shell,
+  .heartbeat-trace { animation: none !important; }
+}

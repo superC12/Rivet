@@ -30,11 +30,12 @@ function create(tag, className, text) {
 }
 
 export class RouteControl {
-  constructor({ select, trigger, menu, onLinkProvider }) {
+  constructor({ select, trigger, menu, onLinkProvider, onConfigureRouter }) {
     this.select = select;
     this.trigger = trigger;
     this.menu = menu;
     this.onLinkProvider = onLinkProvider;
+    this.onConfigureRouter = onConfigureRouter;
     this.entries = [];
     this.models = [];
     this.providers = [];
@@ -44,12 +45,14 @@ export class RouteControl {
       if (choice) this.choose(choice.dataset.routeValue);
       const link = event.target.closest("[data-link-provider]");
       if (link) { this.close(); this.onLinkProvider(); }
+      const configure = event.target.closest("[data-configure-router]");
+      if (configure) this.configureRouter();
     });
     document.addEventListener("click", event => { if (!event.target.closest("#route-control")) this.close(); });
     document.addEventListener("keydown", event => { if (event.key === "Escape") this.close(); });
   }
 
-  configure(models = [], providers = []) {
+  configure(models = [], providers = [], routerConfig = {}) {
     const previous = this.select.value;
     this.providers = providers;
     const active = providers.filter(provider => provider.status === "online");
@@ -58,7 +61,10 @@ export class RouteControl {
     const local = active.some(provider => providerKind(provider) === "local");
     const cloud = active.some(provider => providerKind(provider) === "cloud");
     const entries = [];
-    if (active.length) entries.push({ value: "auto", label: "Auto route", detail: `${active.length} active ${active.length === 1 ? "provider" : "providers"}`, kind: "auto" });
+    const routingModelKey = routerConfig.routing_model?.enabled ? routerConfig.routing_model.model : "";
+    const routingModel = this.models.find(model => `${model.provider}:${model.id}` === routingModelKey);
+    const autoDetail = routingModel ? `Assisted by ${routingModel.name}` : "Built-in routing rules";
+    if (active.length) entries.push({ value: "auto", label: "Auto route", detail: autoDetail, kind: "auto" });
     if (local) entries.push({ value: "local_only", label: "Local only", detail: "Keep prompt content on local compute", kind: "local" });
     if (cloud) entries.push({ value: "cloud", label: "Cloud", detail: "Use an authenticated cloud route", kind: "cloud" });
     this.models.forEach(model => {
@@ -106,6 +112,11 @@ export class RouteControl {
     this.choose(kind === "cloud" ? "cloud" : kind === "local" ? "local_only" : "auto");
   }
 
+  configureRouter() {
+    this.close();
+    this.onConfigureRouter();
+  }
+
   renderTrigger() {
     const selected = this.entries.find(entry => entry.value === this.select.value);
     const iconTarget = document.querySelector("#route-icon");
@@ -139,6 +150,16 @@ export class RouteControl {
     } else {
       this.menu.append(create("p", "route-menu-empty", "No configured provider is currently reachable."));
     }
+    const configure = create("button", "route-configure-auto");
+    configure.type = "button";
+    configure.dataset.configureRouter = "true";
+    configure.dataset.openRouterAssistant = "true";
+    const configureSymbol = create("span", "route-menu-icon");
+    configureSymbol.innerHTML = icon("auto");
+    const configureCopy = create("span", "route-menu-copy");
+    configureCopy.append(create("strong", "", "Configure Auto Route"), create("small", "", "Choose an optional routing assistant"));
+    configure.append(configureSymbol, configureCopy, create("span", "route-menu-check", "→"));
+    this.menu.append(configure);
     const link = create("button", "route-link-provider");
     link.type = "button";
     link.dataset.linkProvider = "true";
@@ -181,16 +202,21 @@ export class RuntimeDashboard {
       const ping = this.api("/health").then(() => Math.round(performance.now() - pingStarted));
       const [status, models, roundTrip] = await Promise.all([this.api("/api/status"), this.api("/api/models"), ping]);
       this.data = { status, models, roundTrip };
-      this.routeControl.configure(models, status.providers || []);
+      this.routeControl.configure(models, status.providers || [], config?.router || {});
       this.renderMatrix();
       this.renderDiagnostics();
       this.setConnection(status.status === "ok" ? "Connected" : "Degraded", status.status === "ok");
+      const brokenPath = status.router?.status === "degraded" || ["unreachable", "model_missing", "error"].includes(status.classifier?.status);
+      document.dispatchEvent(new CustomEvent("rivet:connection-health", {
+        detail: { state: brokenPath ? "broken" : status.status === "ok" ? "healthy" : "degraded", latency: roundTrip },
+      }));
       if (status.status !== "ok") this.atmosphere.setState("warning");
     } catch (error) {
       this.data = null;
-      this.routeControl.configure([], []);
+      this.routeControl.configure([], [], config?.router || {});
       this.renderUnavailable(error);
       this.setConnection("Offline", false);
+      document.dispatchEvent(new CustomEvent("rivet:connection-health", { detail: { state: "offline", latency: null } }));
       this.atmosphere.setState("error");
     }
   }
@@ -216,7 +242,9 @@ export class RuntimeDashboard {
     const matrix = document.querySelector("#execution-matrix");
     matrix.replaceChildren();
     const router = this.matrixNode({ label: `${this.instanceName} Router`, detail: status.router?.strategy || "auto", status: active.length ? "ready" : "waiting", kind: "auto", primary: true });
-    router.addEventListener("click", () => active.length ? this.routeControl.choose("auto") : this.onOpenSettings("connections"));
+    router.dataset.openRouterAssistant = "true";
+    router.setAttribute("aria-label", "Configure Auto Route");
+    router.addEventListener("click", () => this.routeControl.configureRouter());
     const engines = create("div", "matrix-engines");
     engines.append(this.matrixNode({ label: `${this.instanceName} API`, detail: `${roundTrip} ms`, status: "online", kind: "api" }));
     providers.forEach(provider => {

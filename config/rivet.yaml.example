@@ -12,6 +12,15 @@ router:
   # provider-defined order.
   model_priority: []
 
+  # Optional model-assisted selection. Leave disabled to use Rivet's normal
+  # router with no extra inference call. `model` uses provider:model identity.
+  routing_model:
+    enabled: false
+    model: ""
+    # auto lets the routing model decide per request; never and always are
+    # explicit overrides. Unsupported targets safely run without thinking.
+    thinking_policy: auto
+
   classifier:
     # heuristic - deterministic patterns, needs nothing installed.
     # dispatch  - asks a model you select and configure yourself. Rivet

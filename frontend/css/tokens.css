@@ -1,7 +1,7 @@
 @property --accent {
   syntax: "<color>";
   inherits: true;
-  initial-value: #e4b45f;
+  initial-value: transparent;
 }
 
 :root {
@@ -17,7 +17,7 @@
   --line: rgba(255, 255, 255, .075);
   --line-strong: rgba(255, 255, 255, .14);
   --healthy: #34c759;
-  --accent: #e4b45f;
+  --accent: transparent;
   --danger: #ff6b6b;
   --shadow: 0 18px 70px rgba(0, 0, 0, .34);
   --sidebar-width: 258px;

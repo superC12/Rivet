@@ -57,6 +57,26 @@ def test_adaptive_accent_has_a_status_target_and_is_not_pinned_by_root_transitio
     assert 'id="accent-context"' in markup
     assert 'aria-live="polite"' in markup
     assert not re.search(r"transition\s*:[^;]*--accent", tokens)
+    assert "initial-value: transparent" in tokens
+    assert "--accent: transparent" in tokens
+
+
+def test_saved_theme_and_accent_are_available_before_first_paint():
+    main = (ROOT / "backend" / "main.py").read_text(encoding="utf-8")
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    app = (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    accent = (ROOT / "frontend" / "js" / "accent.js").read_text(encoding="utf-8")
+    atmosphere = (ROOT / "frontend" / "js" / "atmosphere.js").read_text(encoding="utf-8")
+
+    assert "def frontend_shell()" in main
+    assert 'style="--accent: {accent}"' in main
+    assert "data-theme-setting" in main
+    assert 'const setting = root.dataset.themeSetting || "system"' in markup
+    assert "if (config.onboarding.complete) accent.configure" in app
+    assert "else accent.clear()" in app
+    assert 'style.setProperty("--accent", "transparent")' in accent
+    assert "this.accent = [0, 0, 0]" in atmosphere
+    assert ": [0, 0, 0]" in atmosphere
 
 
 def test_atmosphere_uses_explicit_accent_invalidation_and_stays_within_the_brief():
@@ -68,7 +88,9 @@ def test_atmosphere_uses_explicit_accent_invalidation_and_stays_within_the_brief
     assert 'addEventListener("rivet:accentchange"' in atmosphere
     assert 'new CustomEvent("rivet:accentchange"' in accent
     assert "Math.min(.18, Math.max(.08," in atmosphere
-    assert 'id="settings-intensity" type="range" min="0.08" max="0.18"' in markup
+    assert 'id="settings-intensity" type="range" min="0" max="100"' in markup
+    assert 'id="settings-speed" type="range" min="0" max="100"' in markup
+    assert 'id="settings-reaction" type="range" min="0" max="100"' in markup
 
 
 def test_status_poll_hits_the_shared_health_cache_and_remote_nodes_stay_remote():
@@ -131,11 +153,35 @@ def test_benchmark_editor_uses_compact_collapsible_sections():
     assert 'disclosure("Execution target"' in benchmarks
     assert 'disclosure("Prompt rules"' in benchmarks
     assert 'disclosure("Test cases"' in benchmarks
+    assert 'disclosure("Suite details"' in benchmarks
+    assert "benchmark-identity" not in benchmarks
+    assert "benchmark-identity" not in styles
+    assert ".benchmark-picker-field { flex: 1 1 auto;" in styles
     assert 'create("div", "benchmark-test-head")' in benchmarks
     assert 'create("div", "benchmark-test-body")' in benchmarks
     assert 'classList.toggle("benchmarks-active", name === "benchmarks")' in settings
     assert ".settings-dialog.benchmarks-active .settings-footer { display: none; }" in styles
     assert "grid-template-columns: 96px 120px 1fr 120px 128px 28px" not in styles
+
+
+def test_auto_route_discloses_whether_it_uses_rules_or_a_selected_model():
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    runtime = (ROOT / "frontend" / "js" / "runtime.js").read_text(encoding="utf-8")
+
+    routing_panel = markup.split('data-section="routing"', 1)[1].split("</section>", 1)[0]
+    assert 'id="settings-router-model"' in markup
+    assert 'id="router-assistant-dialog"' in markup
+    assert 'id="settings-router-model"' not in routing_panel
+    assert "None — use built-in rules" in markup
+    assert "routing_model:" in settings
+    assert "openRouterAssistant()" in settings
+    assert 'configure.dataset.configureRouter = "true"' in runtime
+    assert 'router.dataset.openRouterAssistant = "true"' in runtime
+    assert "this.routeControl.configureRouter()" in runtime
+    assert '"Built-in routing rules"' in runtime
+    assert "`Assisted by ${routingModel.name}`" in runtime
+    assert "config?.router || {}" in runtime
 
 
 def test_onboarding_model_rows_are_real_persisted_controls():
@@ -153,11 +199,33 @@ def test_onboarding_model_rows_are_real_persisted_controls():
     assert ".setup-model.excluded strong" in styles
 
 
+def test_onboarding_name_action_has_an_honest_disabled_state():
+    onboarding = (ROOT / "frontend" / "js" / "onboarding.js").read_text(encoding="utf-8")
+    styles = (ROOT / "frontend" / "css" / "motion.css").read_text(encoding="utf-8")
+
+    assert "this.nameNext.disabled = !chosen" in onboarding
+    assert ".text-button:disabled" in styles
+
+
 def test_frontend_assets_cannot_survive_an_upgrade_in_browser_cache():
     main = (ROOT / "backend" / "main.py").read_text(encoding="utf-8")
 
     assert '"Cache-Control"] = "no-store, max-age=0"' in main
     assert 'NO_STORE = {"Cache-Control": "no-store, max-age=0"' in main
+
+
+def test_release_ui_contains_no_debug_control_surface():
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    tactile = (ROOT / "frontend" / "js" / "tactile-effects.js").read_text(encoding="utf-8")
+
+    assert "motion-test-controls" not in markup
+    assert "tactile-test-controls" not in markup
+    assert "data-motion-state" not in markup
+    assert "data-debug-panel" not in markup
+    assert "data-debug-connection" not in markup
+    assert "atmosphere-test-controls" not in markup
+    assert "data-debug-panel" not in tactile
+    assert "data-debug-connection" not in tactile
 
 
 def test_about_easter_egg_opens_a_non_destructive_onboarding_preview():

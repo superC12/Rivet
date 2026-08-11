@@ -21,7 +21,8 @@ from __future__ import annotations
 
 from .classifier import Classification, Classifier, HeuristicClassifier
 from .decision import RouteDecision, trace_step
-from .policies import RoutingPolicy
+from .model_router import AskModel, OptionalModelRouter, RoutingAdvice
+from .policies import RoutingPolicy, tier_of
 from .builtin import BuiltInRouter
 from .switchyard_adapter import SwitchyardRouter
 
@@ -29,7 +30,13 @@ __all__ = ["RouteDecision", "RoutingEngine", "trace_step"]
 
 
 class RoutingEngine:
-    def __init__(self, config: dict, models: list[dict], classifier: Classifier | None = None) -> None:
+    def __init__(
+        self,
+        config: dict,
+        models: list[dict],
+        classifier: Classifier | None = None,
+        model_router_ask: AskModel | None = None,
+    ) -> None:
         self.config = config
         self.nodes = config.get("nodes", {}) or {}
         self.policy = RoutingPolicy.from_config(config)
@@ -57,6 +64,9 @@ class RoutingEngine:
         else:
             self.models = eligible_models
         self.classifier = classifier or Classifier(router_config.get("classifier", {}))
+        self.model_router = OptionalModelRouter(
+            router_config.get("routing_model", {}), self.nodes, self.policy, model_router_ask
+        )
         self.engine_name = str(router_config.get("engine", "builtin")).lower()
         if self.engine_name == "switchyard":
             self.router: BuiltInRouter | SwitchyardRouter = SwitchyardRouter(
@@ -77,8 +87,21 @@ class RoutingEngine:
         # is going to read.
         if model_override:
             classification = Classification(lane="LOCAL", reason="Manual model override", source="override")
+        elif self.model_router.enabled:
+            # The optional routing model already performs semantic
+            # selection. Keep the deterministic heuristic as its action
+            # safety gate and as the zero-latency fallback.
+            classification = HeuristicClassifier().classify(text)
         else:
             classification = await self.classifier.classify(text)
+        if self.model_router.enabled and not model_override and classification.lane != "ACTION":
+            advice, error = await self.model_router.advise(text, classification, self.models, mode, affinity)
+            if advice:
+                return self._advised_decision(classification, advice)
+            decision = await self._select(classification, mode, model_override, affinity)
+            if error:
+                decision.step(f"Model router skipped → {error}; built-in rules used")
+            return decision
         return await self._select(classification, mode, model_override, affinity)
 
     def select(
@@ -103,6 +126,30 @@ class RoutingEngine:
         if isinstance(self.router, SwitchyardRouter):
             return await self.router.select(classification, self.models, mode, model_override, affinity)
         return self.router.select(classification, self.models, mode, model_override, affinity)
+
+    def _advised_decision(self, classification: Classification, advice: RoutingAdvice) -> RouteDecision:
+        selected = next(
+            model
+            for model in self.models
+            if f'{model.get("provider", "")}:{model.get("id", "")}' == advice.model_key
+        )
+        tier = tier_of(selected, self.nodes)
+        return RouteDecision(
+            route=tier,
+            confidence=0.88,
+            reason=advice.reason,
+            provider=selected["provider"],
+            model=selected["id"],
+            node=selected.get("node"),
+            lane=classification.lane,
+            confident=True,
+            thinking=advice.thinking,
+            trace=[
+                trace_step(f"Classified → {classification.lane.lower()} (built-in safety gate)"),
+                trace_step(f"Model router → {selected.get('name', selected['id'])}"),
+                trace_step(f"Thinking → {'on' if advice.thinking else 'off'}"),
+            ],
+        )
 
 
 def heuristic_decision(config: dict, models: list[dict], text: str, **kwargs) -> RouteDecision:

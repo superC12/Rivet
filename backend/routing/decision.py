@@ -24,6 +24,7 @@ class RouteDecision:
     node: str | None = None
     lane: str | None = None
     confident: bool = True
+    thinking: bool | str | None = None
     trace: list[dict] = field(default_factory=list)
 
     def step(self, message: str) -> None:

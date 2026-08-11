@@ -30,6 +30,8 @@
 .onboarding-actions.end { justify-content: flex-end; }
 .text-button { border: 0; background: transparent; padding: 10px 0; color: var(--secondary); }
 .text-button:hover { color: var(--text); }
+.text-button:disabled { color: var(--tertiary); opacity: .52; cursor: default; }
+.text-button:disabled:hover { color: var(--tertiary); }
 .text-button span { margin-left: 7px; }
 .discovery-list { margin: 40px 0 28px; border-top: 1px solid var(--line); }
 .discovery-item { display: flex; align-items: center; gap: 17px; padding: 18px 4px; border-bottom: 1px solid var(--line); }

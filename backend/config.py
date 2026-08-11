@@ -26,7 +26,7 @@ DEFAULT_ASSISTANT: dict[str, Any] = {
         # Benchmarks are opt-out rather than opt-in: they are useful on
         # first run, and removing every suite puts the panel away.
         "show_benchmarks": True,
-        "motion": {"mode": "dynamic", "intensity": 0.18, "speed": 1.0},
+        "motion": {"mode": "dynamic", "intensity": 0.18, "speed": 1.1, "reaction": 0.9},
         "density": "minimal",
     },
 }
@@ -45,6 +45,13 @@ DEFAULT_RIVET: dict[str, Any] = {
         # First entry wins within a routing tier. Entries use the same
         # provider:model identity as disabled_models.
         "model_priority": [],
+        # Optional. When empty, Rivet uses only its normal deterministic
+        # classifier and selection rules with no extra model call.
+        "routing_model": {
+            "enabled": False,
+            "model": "",
+            "thinking_policy": "auto",
+        },
         "classifier": {
             # "heuristic" needs nothing installed. "dispatch" asks a model
             # selected by the administrator — Rivet ships no model or recipe.

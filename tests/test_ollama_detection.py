@@ -21,6 +21,17 @@ class _OllamaStub(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self):  # noqa: N802 - stdlib handler API
+        if self.path != "/api/show":
+            self.send_error(404)
+            return
+        body = json.dumps({"capabilities": ["completion", "thinking"]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def log_message(self, *_args):
         return
 
@@ -46,6 +57,7 @@ def test_auto_detection_finds_an_administrator_candidate_and_lists_models():
         assert provider.endpoint == detected
         models = await provider.list_models()
         assert [model["id"] for model in models] == ["qwen3:8b"]
+        assert models[0]["capabilities"] == ["chat", "completion", "thinking"]
 
     try:
         health.cache.invalidate()

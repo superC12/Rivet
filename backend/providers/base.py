@@ -14,6 +14,7 @@ class ChatRequest:
     messages: list[dict[str, str]]
     model: str
     temperature: float = 0.4
+    think: bool | str | None = None
 
 
 class Provider(ABC):

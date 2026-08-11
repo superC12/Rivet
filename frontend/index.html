@@ -3,6 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const setting = root.dataset.themeSetting || "system";
+      root.dataset.theme = setting === "system"
+        ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
+        : setting;
+      delete root.dataset.themeSetting;
+    })();
+  </script>
   <meta name="theme-color" content="#08080a">
   <meta name="description" content="A lightweight home for your AI.">
   <title>AI Assistant</title>
@@ -11,6 +21,9 @@
   <link rel="stylesheet" href="/static/css/chat.css">
   <link rel="stylesheet" href="/static/css/motion.css">
   <link rel="stylesheet" href="/static/css/settings.css">
+  <link rel="stylesheet" href="/static/css/appearance-motion.css">
+  <link rel="stylesheet" href="/static/css/tactile-effects.css">
+  <link rel="stylesheet" href="/static/css/router-assistant.css">
 </head>
 <body>
   <a class="skip-link" href="#conversation">Skip to conversation</a>
@@ -43,7 +56,7 @@
         </div>
         <div class="header-status">
           <button class="motion-status" id="motion-status" aria-label="Change background atmosphere"><span class="spark">✦</span><span id="motion-label">Dynamic</span></button>
-          <button class="connection-status" id="connection-status" type="button" aria-label="Connection diagnostics" aria-expanded="false" aria-controls="connection-popover"><i id="connection-dot"></i><span id="connection-label">Connecting</span></button>
+          <button class="connection-status" id="connection-status" type="button" aria-label="Connection diagnostics" aria-expanded="false" aria-controls="connection-popover"><i id="connection-dot"></i><span id="connection-label">Connecting</span><span class="connection-heartbeat" id="connection-heartbeat" aria-hidden="true"><svg viewBox="0 0 64 16" preserveAspectRatio="none"><path class="heartbeat-baseline" d="M0 8H64"/><path class="heartbeat-trace" d="M0 8H16l4-1 3-5 5 12 4-8 4 2h28"/></svg><span class="broken-heart">♡</span></span></button>
           <div class="connection-popover" id="connection-popover" hidden>
             <div class="diagnostic-head"><div><span>RUNTIME</span><strong>Connection diagnostics</strong></div><button id="refresh-diagnostics" type="button" aria-label="Refresh diagnostics">↻</button></div>
             <div class="diagnostic-list" id="diagnostic-list"></div>
@@ -250,8 +263,11 @@ Don't pretend actions succeeded.</textarea></label>
             <p class="field-note">Adaptive uses coral for creative work, mint for math and science, blue for code, violet for analysis, and amber for actions. The base color handles everything else.</p>
           </div>
           <label>Background<select id="settings-motion"><option value="static">Static</option><option value="ambient">Ambient</option><option value="dynamic">Dynamic</option></select></label>
-          <label>Intensity <output id="intensity-output">18%</output><input id="settings-intensity" type="range" min="0.08" max="0.18" step="0.01"></label>
-          <label>Motion speed <output id="speed-output">1.0×</output><input id="settings-speed" type="range" min="0.3" max="1.6" step="0.1"></label>
+          <label id="settings-presence-control">Atmosphere presence <output id="intensity-output">50</output><input id="settings-intensity" type="range" min="0" max="100" step="1"></label>
+          <label id="settings-speed-control">Drift speed <output id="speed-output">55</output><input id="settings-speed" type="range" min="0" max="100" step="1"></label>
+          <label id="settings-reaction-control">Reaction strength <output id="reaction-output">45</output><input id="settings-reaction" type="range" min="0" max="100" step="1"></label>
+          <p class="field-note motion-scale-note">50 is the original baseline. 100 is twice that amount.</p>
+          <p class="field-note motion-mode-note" id="motion-mode-note">Dynamic breathes continuously and reacts to routing, generation, completion, warnings, and errors.</p>
         </section>
         <section class="settings-section" data-section="advanced">
           <p class="settings-kicker">SYSTEM</p><h2>Advanced</h2>
@@ -265,6 +281,21 @@ Don't pretend actions succeeded.</textarea></label>
         </div>
         <footer class="settings-footer"><span id="settings-saved"></span><button id="save-settings">Save changes</button></footer>
       </div>
+    </div>
+  </dialog>
+
+  <dialog class="router-assistant-dialog" id="router-assistant-dialog" aria-labelledby="router-assistant-title">
+    <div class="router-assistant-shell">
+      <header class="router-assistant-head">
+        <div><p class="settings-kicker">AUTO ROUTE</p><h2 id="router-assistant-title">Router intelligence</h2></div>
+        <button class="icon-button" id="close-router-assistant" type="button" aria-label="Close router intelligence">×</button>
+      </header>
+      <p class="section-intro">Rivet's built-in router works on its own. Optionally assign one activated model to help judge ambiguous requests.</p>
+      <div class="router-assistant-state"><span>Current behavior</span><strong id="settings-router-model-state">Built-in rules active</strong></div>
+      <label>Routing assistant<select id="settings-router-model"><option value="">None — use built-in rules</option></select><small>Only activated models appear. If this model is unavailable, Rivet immediately falls back to its normal router.</small></label>
+      <label>Thinking behavior<select id="settings-thinking-policy"><option value="auto">Automatic per request</option><option value="never">Always off</option><option value="always">Always on when supported</option></select><small>Automatic decides whether deeper reasoning is worth the extra time and energy.</small></label>
+      <p class="router-assistant-guardrail">Privacy, action safety, compatibility, and your model priority remain hard constraints. A cloud routing assistant will see the request it routes.</p>
+      <footer><span id="router-assistant-saved"></span><button id="save-router-assistant" type="button">Save router assistant</button></footer>
     </div>
   </dialog>
 
@@ -284,5 +315,7 @@ Don't pretend actions succeeded.</textarea></label>
     <article class="message-pair"><div class="user-message"></div><div class="assistant-message"><div class="assistant-content"></div><button class="trace-toggle" hidden><i></i><span>Executed 0 steps</span><b>⌄</b></button><div class="trace-panel"></div><div class="telemetry"></div></div></article>
   </template>
   <script type="module" src="/static/js/app.js"></script>
+  <script type="module" src="/static/js/appearance-motion.js"></script>
+  <script type="module" src="/static/js/tactile-effects.js"></script>
 </body>
 </html>

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend import __version__
@@ -69,13 +70,35 @@ app.mount("/static", FreshStaticFiles(directory=FRONTEND), name="static")
 NO_STORE = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"}
 
 
+def frontend_shell() -> HTMLResponse:
+    """Serve saved appearance values before the browser's first paint.
+
+    Loading settings in app.js is still authoritative, but it happens after
+    CSS and canvas startup.  Injecting these two non-secret preferences into
+    the root element prevents a hard-coded accent or theme from flashing on
+    every reload.  A first install stays neutral until onboarding finishes.
+    """
+    markup = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    appearance = str(settings.assistant.get("interface", {}).get("appearance", "system"))
+    if appearance not in {"system", "light", "dark"}:
+        appearance = "system"
+    saved_accent = str(
+        settings.assistant.get("interface", {}).get("accent", {}).get("color", "")
+    )
+    accent = saved_accent if re.fullmatch(r"#[0-9a-fA-F]{6}", saved_accent) else "transparent"
+    if not settings.rivet.get("onboarding", {}).get("complete", False):
+        accent = "transparent"
+    root = f'<html lang="en" data-theme-setting="{appearance}" style="--accent: {accent}">'
+    return HTMLResponse(markup.replace('<html lang="en">', root, 1), headers=NO_STORE)
+
+
 @app.get("/", include_in_schema=False)
-async def index() -> FileResponse:
-    return FileResponse(FRONTEND / "index.html", headers=NO_STORE)
+async def index() -> HTMLResponse:
+    return frontend_shell()
 
 
 @app.get("/{path:path}", include_in_schema=False)
-async def frontend_fallback(path: str) -> FileResponse:
+async def frontend_fallback(path: str) -> Response:
     # An unknown API path is a bug in the caller, not a deep link. Serving
     # index.html there returns 200 and HTML to something expecting JSON,
     # which turns a clear 404 into a confusing parse error.
@@ -83,5 +106,7 @@ async def frontend_fallback(path: str) -> FileResponse:
         raise HTTPException(404, "Not found")
     candidate = (FRONTEND / path).resolve()
     if FRONTEND.resolve() in candidate.parents and candidate.is_file():
+        if candidate == (FRONTEND / "index.html").resolve():
+            return frontend_shell()
         return FileResponse(candidate, headers=NO_STORE)
-    return FileResponse(FRONTEND / "index.html", headers=NO_STORE)
+    return frontend_shell()

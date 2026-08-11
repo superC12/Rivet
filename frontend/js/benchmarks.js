@@ -13,18 +13,16 @@ const KIND = {
     label: "Speed & Footprint",
     short: "Speed",
     question: "How fast it answers, and how much of the machine it takes.",
-    icon: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 15.5a6.5 6.5 0 1 1 6.5-6.5"/><path d="M9 9l3.6-3.1"/></svg>',
   },
   eval: {
     label: "Judgment & Limits",
     short: "Judgment",
     question: "Whether it follows your protocol, and admits what it cannot do.",
-    icon: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2.5v13M4 6h10"/><path d="m4 6-1.8 4a2.2 2.2 0 0 0 3.6 0Zm10 0-1.8 4a2.2 2.2 0 0 0 3.6 0Z"/></svg>',
   },
 };
 
 function kindOf(kind) {
-  return KIND[kind] || { label: kind, short: kind, question: "", icon: "" };
+  return KIND[kind] || { label: kind, short: kind, question: "" };
 }
 
 function create(tag, className, text) {
@@ -131,7 +129,7 @@ export class BenchmarksPanel {
 
   renderPicker() {
     this.picker.replaceChildren(...this.suites.map(suite => {
-      const option = create("option", "", `${suite.name} · ${kindOf(suite.kind).short}`);
+      const option = create("option", "", suite.name);
       option.value = suite.id;
       return option;
     }));
@@ -200,17 +198,13 @@ export class BenchmarksPanel {
     description.maxLength = 280;
 
     const kind = kindOf(suite.kind);
-    const identity = create("div", `benchmark-identity kind-${suite.kind}`);
-    const mark = create("span", "benchmark-identity-mark");
-    mark.innerHTML = kind.icon;
-    const copy = create("div", "benchmark-identity-copy");
-    copy.append(create("strong", "", kind.label), create("small", "", kind.question));
-    identity.append(mark, copy);
-    this.editor.append(identity);
-
     const head = create("div", "benchmark-grid");
     head.append(field("Name", name), field("Description", description));
-    this.editor.append(head);
+    const details = disclosure("Suite details", kind.label);
+    const detailsBody = create("div", "benchmark-disclosure-content");
+    detailsBody.append(head);
+    details.append(detailsBody);
+    this.editor.append(details);
 
     const target = disclosure("Execution target", "Ollama connection and models");
     const targetBody = create("div", "benchmark-disclosure-content");

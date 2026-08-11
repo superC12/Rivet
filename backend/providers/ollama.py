@@ -3,12 +3,17 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from typing import AsyncIterator
 
 import httpx
 
 from backend.nodes.health import probe
 from .base import ChatRequest, Provider, ProviderError
+
+
+_CAPABILITY_TTL_S = 300.0
+_capability_cache: dict[tuple[str, str], tuple[list[str], float]] = {}
 
 
 class OllamaProvider(Provider):
@@ -73,6 +78,13 @@ class OllamaProvider(Provider):
             async with httpx.AsyncClient(timeout=4.0) as client:
                 response = await client.get(f"{endpoint}/api/tags")
                 response.raise_for_status()
+            items = response.json().get("models", [])
+            # /api/tags does not report thinking/vision support. /api/show
+            # does, and these small metadata calls run concurrently and are
+            # cached so routing never guesses from a model name.
+            capabilities = await asyncio.gather(
+                *(self.model_capabilities(item["name"], endpoint=endpoint) for item in items)
+            )
             return [
                 {
                     "id": item["name"],
@@ -80,9 +92,9 @@ class OllamaProvider(Provider):
                     "provider": self.id,
                     "node": self.node,
                     "size": item.get("size"),
-                    "capabilities": ["chat"],
+                    "capabilities": sorted({"chat", *caps}),
                 }
-                for item in response.json().get("models", [])
+                for item, caps in zip(items, capabilities, strict=False)
             ]
         except (httpx.HTTPError, KeyError, ValueError):
             return []
@@ -90,6 +102,12 @@ class OllamaProvider(Provider):
     async def chat(self, request: ChatRequest) -> AsyncIterator[str]:
         payload = {"model": request.model, "messages": request.messages, "stream": True, "options": {"temperature": request.temperature}}
         endpoint = await self._resolve_endpoint() or self.endpoint
+        if request.think is not None:
+            capabilities = await self.model_capabilities(request.model, endpoint=endpoint)
+            # Sending think=true to an unsupported Ollama model is a 400.
+            # think=false is safe and is the hard switch hybrid Qwen models
+            # need, so unsupported "on" requests downgrade rather than fail.
+            payload["think"] = request.think if "thinking" in capabilities else False
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
                 async with client.stream("POST", f"{endpoint}/api/chat", json=payload) as response:
@@ -105,6 +123,23 @@ class OllamaProvider(Provider):
                             self._record_usage(chunk)
         except (httpx.HTTPError, json.JSONDecodeError) as exc:
             raise ProviderError(f"Ollama stopped responding: {exc}") from exc
+
+    async def model_capabilities(self, model: str, endpoint: str | None = None) -> list[str]:
+        resolved = (endpoint or await self._resolve_endpoint() or self.endpoint).rstrip("/")
+        key = (resolved, model)
+        cached = _capability_cache.get(key)
+        if cached and time.monotonic() < cached[1]:
+            return cached[0]
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                response = await client.post(f"{resolved}/api/show", json={"model": model})
+                response.raise_for_status()
+            values = response.json().get("capabilities", [])
+            capabilities = [str(value).lower() for value in values if isinstance(value, str)]
+        except (httpx.HTTPError, KeyError, ValueError):
+            capabilities = []
+        _capability_cache[key] = (capabilities, time.monotonic() + _CAPABILITY_TTL_S)
+        return capabilities
 
     def _record_usage(self, chunk: dict) -> None:
         prompt = chunk.get("prompt_eval_count")

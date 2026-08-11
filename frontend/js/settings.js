@@ -25,8 +25,8 @@ export class SettingsPanel {
     document.querySelector("#close-settings-mobile").addEventListener("click", () => this.dialog.close());
     this.dialog.querySelectorAll("[data-settings-section]").forEach(button => button.addEventListener("click", () => this.section(button.dataset.settingsSection)));
     document.querySelector("#save-settings").addEventListener("click", () => this.save());
-    document.querySelector("#settings-intensity").addEventListener("input", event => document.querySelector("#intensity-output").value = `${Math.round(event.target.value * 100)}%`);
-    document.querySelector("#settings-speed").addEventListener("input", event => document.querySelector("#speed-output").value = `${Number(event.target.value).toFixed(1)}×`);
+    document.querySelector("#settings-intensity").addEventListener("input", event => document.querySelector("#intensity-output").value = `${Math.round(event.target.value)}`);
+    document.querySelector("#settings-speed").addEventListener("input", event => document.querySelector("#speed-output").value = `${Math.round(event.target.value)}`);
     this.accentPicker = document.querySelector("#settings-accent-picker");
     this.accentChannels = ["r", "g", "b"].map(channel => document.querySelector(`#settings-accent-${channel}`));
     this.accentPicker.addEventListener("input", event => this.setAccentColor(event.target.value));
@@ -39,6 +39,11 @@ export class SettingsPanel {
     this.manualLocation = document.querySelector("#manual-provider-location");
     this.manualKeyEnv = document.querySelector("#manual-provider-key-env");
     this.manualStatus = document.querySelector("#manual-provider-status");
+    this.routerDialog = document.querySelector("#router-assistant-dialog");
+    this.routerModelSelect = document.querySelector("#settings-router-model");
+    this.routerModelSelect.addEventListener("change", () => this.syncRoutingModelState());
+    document.querySelector("#close-router-assistant").addEventListener("click", () => this.routerDialog.close());
+    document.querySelector("#save-router-assistant").addEventListener("click", () => this.saveRouterAssistant());
     document.querySelector("#refresh-providers").addEventListener("click", event => this.refreshProviders(event.currentTarget));
     document.querySelector("#show-manual-provider").addEventListener("click", () => this.manualForm.hidden ? this.showManualProvider() : this.hideManualProvider());
     document.querySelector("#cancel-manual-provider").addEventListener("click", () => this.hideManualProvider());
@@ -62,6 +67,58 @@ export class SettingsPanel {
     const loading = this.open("connections");
     this.showManualProvider();
     await loading;
+  }
+
+  async openRouterAssistant() {
+    document.querySelector("#app").classList.remove("sidebar-open");
+    if (this.dialog.open) this.dialog.close();
+    if (!this.routerDialog.open) this.routerDialog.showModal();
+    const status = document.querySelector("#router-assistant-saved");
+    status.textContent = "Loading available models…";
+    try {
+      const [config, models] = await Promise.all([
+        this.api("/api/settings"),
+        this.api("/api/models"),
+      ]);
+      this.config = config;
+      this.routingModels = models.map(model => ({ ...model }));
+      document.querySelector("#settings-thinking-policy").value = config.router.routing_model?.thinking_policy || "auto";
+      this.renderRouterModelOptions(this.routingModels);
+      status.textContent = "";
+      requestAnimationFrame(() => this.routerModelSelect.focus({ preventScroll: true }));
+    } catch (error) {
+      status.textContent = `Router settings unavailable. ${error.message}`;
+    }
+  }
+
+  async saveRouterAssistant() {
+    const button = document.querySelector("#save-router-assistant");
+    const status = document.querySelector("#router-assistant-saved");
+    button.disabled = true;
+    status.textContent = "Saving…";
+    try {
+      const result = await this.api("/api/settings", {
+        method: "POST",
+        body: JSON.stringify({
+          router: {
+            routing_model: {
+              enabled: Boolean(this.routerModelSelect.value),
+              model: this.routerModelSelect.value,
+              thinking_policy: document.querySelector("#settings-thinking-policy").value,
+            },
+          },
+        }),
+      });
+      this.config = result;
+      this.onSave(result);
+      this.syncRoutingModelState();
+      status.textContent = "Saved";
+      setTimeout(() => { if (status.textContent === "Saved") status.textContent = ""; }, 1800);
+    } catch (error) {
+      status.textContent = `Could not save. ${error.message}`;
+    } finally {
+      button.disabled = false;
+    }
   }
 
   section(name) {
@@ -107,7 +164,8 @@ export class SettingsPanel {
 
   populate(config) {
     const motion = config.interface.motion;
-    const intensity = Math.min(.18, Math.max(.08, Number(motion.intensity)));
+    const intensity = Math.min(.36, Math.max(0, Number(motion.intensity)));
+    const reaction = Math.min(2, Math.max(0, Number(motion.reaction ?? .9)));
     const accent = config.interface.accent || { mode: "adaptive", color: "#e4b45f" };
     document.querySelector("#settings-name").value = config.assistant.name;
     document.querySelector("#settings-tagline").value = config.assistant.tagline;
@@ -116,14 +174,17 @@ export class SettingsPanel {
     document.querySelector("#settings-accent-mode").value = accent.mode;
     this.setAccentColor(accent.color);
     document.querySelector("#settings-motion").value = motion.mode;
-    document.querySelector("#settings-intensity").value = intensity;
-    document.querySelector("#settings-speed").value = motion.speed;
-    document.querySelector("#intensity-output").value = `${Math.round(intensity * 100)}%`;
-    document.querySelector("#speed-output").value = `${Number(motion.speed).toFixed(1)}×`;
+    document.querySelector("#settings-intensity").value = Math.round(intensity / .18 * 50);
+    document.querySelector("#settings-speed").value = Math.round(Number(motion.speed) * 50);
+    document.querySelector("#settings-reaction").value = Math.round(reaction * 50);
+    document.querySelector("#intensity-output").value = `${Math.round(intensity / .18 * 50)}`;
+    document.querySelector("#speed-output").value = `${Math.round(Number(motion.speed) * 50)}`;
+    document.querySelector("#reaction-output").value = `${Math.round(reaction * 50)}`;
     document.querySelector("#settings-strategy").value = config.router.strategy;
     document.querySelector("#settings-prefer-local").checked = config.router.prefer_local;
     document.querySelector("#settings-affinity").checked = config.router.session_affinity;
     document.querySelector("#settings-local-only").checked = config.router.privacy_mode === "local_only";
+    document.querySelector("#settings-thinking-policy").value = config.router.routing_model?.thinking_policy || "auto";
 
     const n8n = config.actions?.n8n || {};
     document.querySelector("#settings-n8n-enabled").checked = Boolean(n8n.enabled);
@@ -186,6 +247,8 @@ export class SettingsPanel {
   renderRoutingModels(models) {
     const list = document.querySelector("#settings-routing-models");
     list.replaceChildren();
+    this.routingModels = models.map(model => ({ ...model }));
+    this.renderRouterModelOptions(this.routingModels);
     if (!models.length) { list.textContent = "No models detected."; return; }
     models.forEach(model => {
       const row = document.createElement("label"); row.className = "routing-model-row";
@@ -195,6 +258,12 @@ export class SettingsPanel {
       const source = document.createElement("small"); source.textContent = model.node || model.provider;
       const toggle = document.createElement("input"); toggle.type = "checkbox"; toggle.checked = model.enabled !== false;
       toggle.dataset.modelKey = `${model.provider}:${model.id}`;
+      toggle.addEventListener("change", () => {
+        const selected = this.routerModelSelect.value;
+        const current = this.routingModels.find(item => `${item.provider}:${item.id}` === toggle.dataset.modelKey);
+        if (current) current.enabled = toggle.checked;
+        this.renderRouterModelOptions(this.routingModels, toggle.checked ? selected : selected === toggle.dataset.modelKey ? "" : selected);
+      });
       row.addEventListener("dragstart", event => {
         this.draggingRoutingModel = row;
         row.classList.add("dragging");
@@ -220,6 +289,28 @@ export class SettingsPanel {
       });
       copy.append(name, source); row.append(handle, copy, toggle); list.append(row);
     });
+  }
+
+  renderRouterModelOptions(models, selectedOverride = null) {
+    const selected = selectedOverride ?? this.config?.router?.routing_model?.model ?? "";
+    this.routerModelSelect.replaceChildren();
+    const none = document.createElement("option"); none.value = ""; none.textContent = "None — use built-in rules";
+    this.routerModelSelect.append(none);
+    models.filter(model => model.enabled !== false).forEach(model => {
+      const option = document.createElement("option");
+      option.value = `${model.provider}:${model.id}`;
+      option.textContent = `${model.name} · ${model.node || model.provider}`;
+      this.routerModelSelect.append(option);
+    });
+    this.routerModelSelect.value = [...this.routerModelSelect.options].some(option => option.value === selected) ? selected : "";
+    this.syncRoutingModelState();
+  }
+
+  syncRoutingModelState() {
+    const selected = this.routerModelSelect.selectedOptions[0];
+    document.querySelector("#settings-router-model-state").textContent = selected?.value
+      ? `Assisted by ${selected.textContent}`
+      : "Built-in rules active";
   }
 
   async refreshProviders(button) {
@@ -325,9 +416,9 @@ export class SettingsPanel {
       interface: {
         appearance: document.querySelector("#settings-theme").value,
         accent: { mode: document.querySelector("#settings-accent-mode").value, color: this.accentPicker.value },
-        motion: { mode: document.querySelector("#settings-motion").value, intensity: Number(document.querySelector("#settings-intensity").value), speed: Number(document.querySelector("#settings-speed").value) },
+        motion: { mode: document.querySelector("#settings-motion").value, intensity: Number(document.querySelector("#settings-intensity").value) / 50 * .18, speed: Number(document.querySelector("#settings-speed").value) / 50, reaction: Number(document.querySelector("#settings-reaction").value) / 50 },
       },
-      router: { strategy: document.querySelector("#settings-strategy").value, prefer_local: document.querySelector("#settings-prefer-local").checked, session_affinity: document.querySelector("#settings-affinity").checked, privacy_mode: document.querySelector("#settings-local-only").checked ? "local_only" : "standard", disabled_models: [...document.querySelectorAll("#settings-routing-models input[data-model-key]")].filter(input => !input.checked).map(input => input.dataset.modelKey), model_priority: [...document.querySelectorAll("#settings-routing-models .routing-model-row[data-model-key]")].map(row => row.dataset.modelKey) },
+      router: { strategy: document.querySelector("#settings-strategy").value, prefer_local: document.querySelector("#settings-prefer-local").checked, session_affinity: document.querySelector("#settings-affinity").checked, privacy_mode: document.querySelector("#settings-local-only").checked ? "local_only" : "standard", disabled_models: [...document.querySelectorAll("#settings-routing-models input[data-model-key]")].filter(input => !input.checked).map(input => input.dataset.modelKey), model_priority: [...document.querySelectorAll("#settings-routing-models .routing-model-row[data-model-key]")].map(row => row.dataset.modelKey), routing_model: { enabled: Boolean(this.routerModelSelect.value), model: this.routerModelSelect.value, thinking_policy: document.querySelector("#settings-thinking-policy").value } },
       actions: { n8n: { enabled: document.querySelector("#settings-n8n-enabled").checked } },
     };
     // Only send the endpoint when the user actually typed one; an empty

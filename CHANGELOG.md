@@ -8,6 +8,43 @@ Before 1.0.0, minor versions may change internal interfaces.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-11
+
+### Added
+
+- Optional model-assisted routing can choose among activated models and decide
+  whether deliberate thinking is worth the latency for each request. Rivet's
+  deterministic router remains the default and the immediate fallback.
+- A focused Router Intelligence editor is available from Auto Route in the
+  composer and from the Router node in Compute. Privacy, compatibility, model
+  priority, manual selections, and action safety remain hard constraints.
+- Static, Ambient, and Dynamic atmosphere modes now render an organic fluid
+  field. Dynamic mode responds to local, remote, cloud, wake, completion,
+  warning, and error states while respecting reduced-motion preferences.
+- Connection diagnostics include a latency-driven heartbeat with distinct
+  degraded, offline, and broken-path states.
+- Settings panels unfold subtly from the control that opened them.
+
+### Changed
+
+- Atmosphere presence, drift speed, and reaction strength use consistent
+  0–100 controls, with 50 representing the former baseline and 100 representing
+  twice that baseline.
+- Adaptive accents and atmosphere state now follow the same routing and health
+  context without flashing a default colour during startup.
+- Auto Route configuration is no longer buried inside general Routing
+  settings; that panel now concentrates on policy and model priority.
+- Benchmark editors use a more compact hierarchy with less repeated suite
+  identity and fewer simultaneously expanded controls.
+
+### Fixed
+
+- Automatic routing honours activated-model exclusions and provider-qualified
+  priority while retaining capability and privacy overrides.
+- Router-assistant failures, invalid decisions, unavailable models, or policy
+  conflicts fall back cleanly to built-in routing instead of blocking a chat.
+- Production builds no longer include atmosphere or connection debug controls.
+
 ## [1.2.1] - 2026-08-09
 
 ### Changed
@@ -401,7 +438,8 @@ Initial release.
   `prefers-reduced-motion`.
 - Docker support.
 
-[Unreleased]: https://github.com/superC12/Rivet/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/superC12/Rivet/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/superC12/Rivet/compare/v1.2.1...v2.0.0
 [1.2.1]: https://github.com/superC12/Rivet/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/superC12/Rivet/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/superC12/Rivet/compare/v1.1.0...v1.1.1

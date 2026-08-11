@@ -22,5 +22,6 @@ interface:
   motion:
     mode: dynamic
     intensity: 0.18
-    speed: 1.0
+    speed: 1.1
+    reaction: 0.9
   density: minimal

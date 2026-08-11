@@ -105,6 +105,10 @@ policy     ──► allowed tiers   (backend/routing/policies.py)
 router     ──► provider+model  (backend/routing/builtin.py)
 ```
 
+By default, **Auto route** uses those built-in rules and makes no extra model call. Optionally, choose **Configure Auto Route** from the composer route menu—or click the Router node in Compute—to assign any activated model as a compact selection advisor. It chooses only among models already permitted by privacy, route mode, activation state, and drag-and-drop priority, and it can request thinking only when the chosen target reports that capability. Invalid output or an unavailable advisor falls back to the built-in router immediately. Actions and manual model selections never pass through the advisor.
+
+This role is separate from the classifier: the classifier decides the request lane; the optional routing model advises which eligible model should receive it. No routing model is predefined or required.
+
 Three rules are load-bearing:
 
 **ACTION is never model-decided.** A request reaching the ACTION lane can cause a real side effect, so it is gated on deterministic patterns only, and a question about an action ("how do I create a task?") is never an action. A misfiring classifier should cost a wasted token, not an email nobody meant to send.

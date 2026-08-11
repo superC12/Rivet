@@ -51,14 +51,31 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
     async def stream() -> AsyncIterator[bytes]:
         started = time.perf_counter()
         available_models = await discover_models()
+        provider_instances = providers()
+
+        async def ask_routing_model(model: dict, messages: list[dict[str, str]]) -> str:
+            provider = provider_instances.get(model.get("provider"))
+            if provider is None:
+                raise ProviderError("The routing model provider is unavailable")
+            result = ""
+            async for token in provider.chat(
+                ChatRequest(messages=messages, model=model["id"], temperature=0.0, think=False)
+            ):
+                result += token
+            return result
+
         affinity = store.affinity(conversation_id)
-        engine = RoutingEngine(settings.rivet, available_models)
+        engine = RoutingEngine(
+            settings.rivet,
+            available_models,
+            model_router_ask=ask_routing_model,
+        )
         decision = await engine.decide(payload.message, payload.mode, payload.model, affinity)
         yield event("conversation", {"id": conversation_id})
         yield event("route", {
             "route": decision.route, "confidence": decision.confidence, "reason": decision.reason,
             "provider": decision.provider, "model": decision.model, "node": decision.node,
-            "lane": decision.lane, "trace": decision.trace,
+            "lane": decision.lane, "thinking": decision.thinking, "trace": decision.trace,
         })
 
         if decision.route == "ACTION":
@@ -72,7 +89,6 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
             yield event("error", {"message": text, "trace": decision.trace})
             return
 
-        provider_instances = providers()
         if decision.provider not in provider_instances:
             yield event("error", {"message": "The selected provider is not configured.", "trace": decision.trace})
             return
@@ -102,7 +118,7 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
         try:
             try:
                 async for token in provider_instances[actual_provider].chat(
-                    ChatRequest(messages=messages, model=actual_model)
+                    ChatRequest(messages=messages, model=actual_model, think=decision.thinking)
                 ):
                     full_text += token
                     yield event("token", token)
@@ -133,7 +149,7 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
                 actual_route = fallback_tier
                 try:
                     async for token in provider_instances[actual_provider].chat(
-                        ChatRequest(messages=messages, model=actual_model)
+                        ChatRequest(messages=messages, model=actual_model, think=decision.thinking)
                     ):
                         full_text += token
                         yield event("token", token)
@@ -156,6 +172,7 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
         latency = round((time.perf_counter() - started) * 1000)
         metadata = {
             "route": actual_route, "provider": actual_provider, "model": actual_model, "node": actual_node,
+            "thinking": decision.thinking,
             "latency_ms": latency, "trace": decision.trace,
             "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
         }

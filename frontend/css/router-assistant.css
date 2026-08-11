@@ -1,0 +1,154 @@
+.route-configure-auto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 4px 0 7px;
+  padding: 9px 11px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.route-configure-auto:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.route-configure-auto i {
+  color: var(--accent);
+  font-style: normal;
+}
+
+.route-configure-auto b {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.router-assistant-dialog {
+  width: min(560px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  color: var(--text);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .48);
+}
+
+.router-assistant-dialog::backdrop {
+  background: rgba(0, 0, 0, .62);
+  backdrop-filter: blur(8px);
+}
+
+.router-assistant-shell {
+  padding: 28px;
+}
+
+.router-assistant-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.router-assistant-head h2 {
+  margin: 8px 0 0;
+  font-size: 26px;
+  font-weight: 540;
+  letter-spacing: -.035em;
+}
+
+.router-assistant-dialog .section-intro {
+  margin: 16px 0 22px;
+  max-width: 48ch;
+}
+
+.router-assistant-dialog label {
+  display: grid;
+  gap: 8px;
+  margin-top: 17px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.router-assistant-dialog label small,
+.router-assistant-guardrail {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.router-assistant-dialog select {
+  width: 100%;
+  min-height: 43px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: var(--surface-solid);
+  color: var(--text);
+}
+
+.router-assistant-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.router-assistant-state span {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.router-assistant-state strong {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.router-assistant-guardrail {
+  margin: 19px 0 0;
+}
+
+.router-assistant-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin: 24px -28px -28px;
+  padding: 16px 28px;
+  border-top: 1px solid var(--line);
+}
+
+#router-assistant-saved {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#save-router-assistant {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--text);
+  color: var(--base);
+  font: inherit;
+  cursor: pointer;
+}
+
+.router-assistant-dialog.origin-unfold .router-assistant-shell {
+  transform-origin: var(--panel-origin-x, 50%) var(--panel-origin-y, 50%);
+  animation: panel-origin-unfold .24s cubic-bezier(.2, .78, .2, 1) both;
+}

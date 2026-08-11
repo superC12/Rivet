@@ -48,9 +48,10 @@ function applyConfig(config) {
   // screen should deliberately choose it.
   onboarding.setInstanceName(config.onboarding.complete ? name : "", true);
   applyTheme(config.interface.appearance);
-  accent.configure(config.interface.accent);
-  atmosphere.configure(config.interface.motion);
-  app.dataset.motion = config.interface.motion.mode;
+  if (config.onboarding.complete) accent.configure(config.interface.accent);
+  else accent.clear();
+  const effectiveMotionMode = atmosphere.configure(config.interface.motion);
+  app.dataset.motion = effectiveMotionMode;
   const motionMode = config.interface.motion.mode;
   const motionLabel = motionMode.replace(/^./, char => char.toUpperCase());
   const motionDescriptions = {
@@ -93,6 +94,7 @@ const routeControl = new RouteControl({
   trigger: document.querySelector("#route-trigger"),
   menu: document.querySelector("#route-menu"),
   onLinkProvider: () => settings.openManualConnection(),
+  onConfigureRouter: () => settings.openRouterAssistant(),
 });
 const chat = new Chat({ atmosphere, accent, routeControl, onConversation: id => { sidebar.activeId = id; }, onComplete: id => loadConversations(id) });
 const runtime = new RuntimeDashboard({

@@ -1,3 +1,6 @@
+import asyncio
+import json
+
 from backend.routing import Classification, HeuristicClassifier, RoutingEngine, heuristic_decision
 from backend.routing.policies import RoutingPolicy, tier_of
 
@@ -159,6 +162,127 @@ def test_saved_model_priority_wins_within_the_same_routing_tier():
     )
 
     assert decision.model == "preferred"
+
+
+# --- optional model-assisted Auto Route ----------------------------
+
+
+def assisted_config(model="local:small", **routing_model):
+    return {
+        "router": {
+            "model_priority": ["local:small", "desktop:big", "openrouter-main:cloud"],
+            "routing_model": {
+                "enabled": True,
+                "model": model,
+                "thinking_policy": "auto",
+                **routing_model,
+            },
+        },
+        "nodes": NODES,
+    }
+
+
+def test_auto_route_uses_builtin_rules_when_no_routing_model_is_selected():
+    calls = []
+
+    async def ask(*args):
+        calls.append(args)
+        return "{}"
+
+    engine = RoutingEngine(config(), MODELS, model_router_ask=ask)
+    decision = asyncio.run(engine.decide("What is 18% of 275?"))
+
+    assert decision.model == "small"
+    assert calls == []
+
+
+def test_assisted_auto_route_selects_only_an_eligible_model_and_thinking_mode():
+    seen = {}
+
+    async def ask(model, messages):
+        seen["router"] = model["id"]
+        seen["system"] = messages[0]["content"]
+        return json.dumps({"model": "desktop:big", "thinking": True, "reason": "Worth deeper reasoning"})
+
+    thinking_models = [
+        {**model, "capabilities": ["chat", "thinking"]} if model["id"] == "big" else model
+        for model in MODELS
+    ]
+    engine = RoutingEngine(assisted_config(), thinking_models, model_router_ask=ask)
+    decision = asyncio.run(engine.decide("Compare three possible architectures and identify failure modes."))
+
+    assert seen["router"] == "small"
+    assert '"priority":1' in seen["system"]
+    assert decision.provider == "desktop"
+    assert decision.model == "big"
+    assert decision.thinking is True
+    assert any("Model router" in step["message"] for step in decision.trace)
+
+
+def test_assisted_auto_route_falls_back_if_it_returns_a_disabled_model():
+    async def ask(_model, _messages):
+        return json.dumps({"model": "desktop:big", "thinking": True, "reason": "Use disabled model"})
+
+    cfg = assisted_config()
+    cfg["router"]["disabled_models"] = ["desktop:big"]
+    engine = RoutingEngine(cfg, MODELS, model_router_ask=ask)
+    decision = asyncio.run(engine.decide("What is 18% of 275?"))
+
+    assert decision.model == "small"
+    assert any("invalid decision" in step["message"] for step in decision.trace)
+
+
+def test_local_only_mode_never_sends_the_prompt_to_a_cloud_routing_model():
+    calls = []
+
+    async def ask(*args):
+        calls.append(args)
+        return "{}"
+
+    engine = RoutingEngine(assisted_config(model="openrouter-main:cloud"), MODELS, model_router_ask=ask)
+    decision = asyncio.run(engine.decide("Keep this private", mode="local_only"))
+
+    assert decision.route == "LOCAL"
+    assert calls == []
+    assert any("privacy or route mode blocks" in step["message"] for step in decision.trace)
+
+
+def test_thinking_policy_can_hard_disable_an_advisors_request():
+    async def ask(_model, _messages):
+        return json.dumps({"model": "local:small", "thinking": True, "reason": "Think"})
+
+    thinking_models = [{**MODELS[0], "capabilities": ["chat", "thinking"]}, *MODELS[1:]]
+    engine = RoutingEngine(assisted_config(thinking_policy="never"), thinking_models, model_router_ask=ask)
+    decision = asyncio.run(engine.decide("Analyze this carefully"))
+
+    assert decision.model == "small"
+    assert decision.thinking is False
+
+
+def test_thinking_is_never_enabled_for_a_model_that_does_not_report_support():
+    async def ask(_model, _messages):
+        return json.dumps({"model": "local:small", "thinking": True, "reason": "Think"})
+
+    engine = RoutingEngine(
+        assisted_config(thinking_policy="always"), MODELS, model_router_ask=ask
+    )
+    decision = asyncio.run(engine.decide("Analyze this carefully"))
+
+    assert decision.thinking is False
+
+
+def test_actions_bypass_the_optional_routing_model():
+    calls = []
+
+    async def ask(*args):
+        calls.append(args)
+        return "{}"
+
+    engine = RoutingEngine(assisted_config(), MODELS, model_router_ask=ask)
+    decision = asyncio.run(engine.decide("Create a task called Buy milk"))
+
+    assert decision.route == "ACTION"
+    assert calls == []
 
 
 # --- affinity -------------------------------------------------------

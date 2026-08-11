@@ -41,6 +41,17 @@ export class AccentController {
 
   setAssistantName(name) { this.assistantName = name; }
 
+  clear() {
+    this.lastText = "";
+    document.documentElement.style.setProperty("--accent", "transparent");
+    document.documentElement.dataset.accentContext = "unconfigured";
+    if (this.label) {
+      this.label.textContent = "Accent · Not configured";
+      this.label.dataset.tooltip = "Choose an assistant identity before its visual accent becomes active.";
+    }
+    dispatchEvent(new CustomEvent("rivet:accentchange", { detail: { color: "transparent", context: "Unconfigured" } }));
+  }
+
   configure(config = {}) {
     this.mode = config.mode === "fixed" ? "fixed" : "adaptive";
     this.baseColor = /^#[0-9a-f]{6}$/i.test(config.color || "") ? config.color : "#e4b45f";
