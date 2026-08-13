@@ -10,7 +10,7 @@ body:
     id: version
     attributes:
       label: Rivet version
-      placeholder: v1.0.0
+      placeholder: v2.0.0
     validations:
       required: true
   - type: dropdown

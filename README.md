@@ -10,7 +10,7 @@ Rivet supports a one-line install on Ubuntu 24.04 LTS:
 curl -fsSL https://raw.githubusercontent.com/superC12/Rivet/main/install.sh | sudo bash
 ```
 
-The GitHub owner in this command is filled in when the repository is published. Until then, install from a cloned or copied checkout:
+To install from a cloned checkout instead:
 
 ```bash
 sudo ./install.sh --local
@@ -325,7 +325,7 @@ by the host firewall.
 
 ## Releases
 
-CI runs on pushes and pull requests. Pushing a version tag such as `v1.0.0` runs the full test suite, creates `rivet.tar.gz` with a SHA-256 checksum, and publishes both files as a GitHub Release. The one-line installer prefers that signed-by-GitHub release path and falls back to the `main` branch before the first release exists.
+CI runs on pushes and pull requests. Pushing a version tag such as `v2.0.0` runs the full test suite, creates `rivet.tar.gz` with a SHA-256 checksum, and publishes both files as a GitHub Release. The one-line installer prefers the checksum-verified release archive and falls back to the `main` branch before the first release exists.
 
 ## Safe network access
 
@@ -347,3 +347,11 @@ pytest
 ```
 
 Rivet logs route metadata and failures, but not full prompts or secrets. The UI escapes model output before applying its small safe Markdown subset; arbitrary HTML is never rendered.
+
+## Project policies
+
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
+- [Support](SUPPORT.md)
+- [License](LICENSE)

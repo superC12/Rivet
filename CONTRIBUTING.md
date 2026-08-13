@@ -20,3 +20,7 @@ uvicorn backend.main:app --host 127.0.0.1 --port 8080 --reload
 ```
 
 Pull requests should include focused tests, avoid logging prompts or secrets, preserve local-only privacy behavior, and keep the frontend usable without a heavyweight framework.
+
+By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+For usage questions, see [Support](SUPPORT.md). Report vulnerabilities through
+the private process in [SECURITY.md](SECURITY.md), not a public issue.

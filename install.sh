@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Change this once when the public repository is created. It is the only
-# repository value used by the remote installer.
+# This is the only repository value used by the remote installer. Forks can
+# override it with RIVET_GITHUB_REPOSITORY or --repository.
 RIVET_DEFAULT_REPOSITORY="superC12/Rivet"
 
 INSTALL_ROOT="/opt/rivet"
@@ -92,9 +92,10 @@ if [[ -z "$LOCAL_SOURCE" ]]; then
     RELEASE_URL="https://github.com/$REPOSITORY/releases/latest/download/rivet.tar.gz"
     CHECKSUM_URL="${RELEASE_URL}.sha256"
     if curl --proto '=https' --tlsv1.2 -fsSL "$RELEASE_URL" -o "$ARCHIVE"; then
-      if curl --proto '=https' --tlsv1.2 -fsSL "$CHECKSUM_URL" -o "$ARCHIVE.sha256"; then
-        (cd "$TEMP_ROOT" && sha256sum --check --status rivet.tar.gz.sha256) || fail "release checksum did not match"
-      fi
+      curl --proto '=https' --tlsv1.2 -fsSL "$CHECKSUM_URL" -o "$ARCHIVE.sha256" \
+        || fail "release checksum could not be downloaded"
+      (cd "$TEMP_ROOT" && sha256sum --check --status rivet.tar.gz.sha256) \
+        || fail "release checksum did not match"
       RELEASE_LABEL="release-$(date -u +%Y%m%d%H%M%S)"
     else
       note "No release asset was found; installing the main branch."
@@ -146,7 +147,6 @@ RIVET_PORT=8080
 RIVET_GITHUB_REPOSITORY=$REPOSITORY
 OPENROUTER_API_KEY=
 N8N_ACTION_KEY=
-RIVET_SECRET_KEY=
 EOF
 else
   if ! grep -q '^RIVET_GITHUB_REPOSITORY=' "$CONFIG_ROOT/rivet.env"; then
