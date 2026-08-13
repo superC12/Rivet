@@ -108,11 +108,13 @@ def test_environment_candidates_are_bounded_and_deduplicated(monkeypatch):
     )
 
     candidates = provider._discovery_candidates()
-    assert candidates[0] == "http://127.0.0.1:11434"
-    assert candidates.count("http://homelab:11434") == 1
-    assert candidates.count("http://backup:11434") == 1
-    assert "http://host.docker.internal:11434" in candidates
-    assert "http://ollama:11434" in candidates
+    assert candidates == [
+        "http://127.0.0.1:11434",
+        "http://homelab:11434",
+        "http://backup:11434",
+        "http://host.docker.internal:11434",
+        "http://ollama:11434",
+    ]
 
 
 def test_provider_api_reports_the_effective_detected_endpoint(monkeypatch):
