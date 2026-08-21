@@ -17,8 +17,10 @@ class FakeProvider:
         self.error = error
         self.usage = {"prompt_tokens": 11, "completion_tokens": 7}
         self.node = "homelab"
+        self.requests = []
 
     async def chat(self, request):
+        self.requests.append(request)
         for chunk in self.chunks:
             yield chunk
         if self.error:
@@ -72,6 +74,10 @@ def tokens_of(events):
     return "".join(payload for name, payload in events if name == "token")
 
 
+def trajectory_details(events):
+    return [payload.get("detail", "") for name, payload in events if name == "trajectory"]
+
+
 def test_tokens_containing_newlines_survive_the_stream(stub):
     # Ollama streams "\n" as its own chunk constantly. Raw SSE framing
     # dropped every line after the first, which silently ate blank lines
@@ -100,11 +106,85 @@ def test_stream_reports_route_then_done(stub):
     assert names[-1] == "done"
 
 
+def test_stream_exposes_observable_trajectory_without_private_reasoning(stub):
+    events = collect(["hello"], stub=stub)
+    trajectory = [payload for name, payload in events if name == "trajectory"]
+    by_id = {}
+    for step in trajectory:
+        by_id.setdefault(step["id"], []).append(step)
+    assert by_id["prompt"][0]["state"] == "complete"
+    assert [step["state"] for step in by_id["routing"]] == ["active", "complete"]
+    assert [step["state"] for step in by_id["execution"]] == ["active", "complete"]
+    assert [step["state"] for step in by_id["response"]] == ["active", "complete"]
+    assert all(isinstance(step["timestamp_ms"], int) for step in trajectory)
+    assert all("reasoning" not in step and "chain_of_thought" not in step for step in trajectory)
+    done = next(payload for name, payload in events if name == "done")
+    assert done["trajectory"] == trajectory
+    assert any(step["id"].startswith("routing-detail-") and step["parent"] == "routing" for step in trajectory)
+    assert "trace" not in done
+
+
 def test_token_counts_are_persisted(stub):
     events = collect(["hello"], stub=stub)
     done = next(payload for name, payload in events if name == "done")
     assert done["prompt_tokens"] == 11
     assert done["completion_tokens"] == 7
+
+
+def test_manual_thinking_is_sent_to_a_capable_model(monkeypatch, stub):
+    capable = [{**MODELS[0], "capabilities": ["chat", "thinking"]}]
+
+    async def fake_discover():
+        return capable
+
+    provider = stub(["considered answer"])
+    monkeypatch.setattr(chat_api, "discover_models", fake_discover)
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/chat",
+            json={"message": "Solve this carefully", "mode": "local_only", "thinking": True},
+        )
+    events = parse_sse(response.text)
+    route = next(payload for name, payload in events if name == "route")
+    done = next(payload for name, payload in events if name == "done")
+    assert provider.requests[-1].think is True
+    assert route["thinking"] is True
+    assert done["thinking"] is True
+    assert any("on (manual)" in detail for detail in trajectory_details(events))
+
+
+def test_manual_thinking_is_clamped_for_an_unsupported_model(stub):
+    provider = stub(["plain answer"])
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/chat",
+            json={"message": "Solve this carefully", "mode": "local_only", "thinking": True},
+        )
+    events = parse_sse(response.text)
+    route = next(payload for name, payload in events if name == "route")
+    assert provider.requests[-1].think is False
+    assert route["thinking"] is False
+    assert any("does not report support" in detail for detail in trajectory_details(events))
+
+
+def test_manual_thinking_off_overrides_a_capable_model(monkeypatch, stub):
+    capable = [{**MODELS[0], "capabilities": ["chat", "thinking"]}]
+
+    async def fake_discover():
+        return capable
+
+    provider = stub(["direct answer"])
+    monkeypatch.setattr(chat_api, "discover_models", fake_discover)
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/chat",
+            json={"message": "Answer directly", "mode": "local_only", "thinking": False},
+        )
+    events = parse_sse(response.text)
+    route = next(payload for name, payload in events if name == "route")
+    assert provider.requests[-1].think is False
+    assert route["thinking"] is False
+    assert any("off (manual)" in detail for detail in trajectory_details(events))
 
 
 def test_conversation_survives_the_request(stub):
@@ -114,6 +194,9 @@ def test_conversation_survives_the_request(stub):
         stored = client.get(f"/api/conversations/{conversation_id}").json()
     assert [m["role"] for m in stored["messages"]] == ["user", "assistant"]
     assert stored["messages"][1]["content"] == "hello world"
+    assert stored["messages"][1]["trace"] == []
+    assert [event["id"] for event in stored["messages"][1]["trajectory"]][:2] == ["prompt", "routing"]
+    assert stored["messages"][1]["trajectory"][-1]["id"] == "response"
 
 
 def test_partial_output_is_kept_when_the_model_dies_mid_answer(stub):
@@ -126,7 +209,9 @@ def test_partial_output_is_kept_when_the_model_dies_mid_answer(stub):
         stored = client.get(f"/api/conversations/{conversation_id}").json()
     assistant = [m for m in stored["messages"] if m["role"] == "assistant"]
     assert assistant and assistant[0]["content"] == "I was saying "
-    assert any("ended early" in step["message"] for step in assistant[0]["trace"])
+    assert assistant[0]["trace"] == []
+    assert any("interrupted before completion" in step.get("detail", "").lower() for step in assistant[0]["trajectory"])
+    assert assistant[0]["trajectory"][-1]["state"] == "stopped"
 
 
 def test_action_without_a_gateway_does_not_claim_success(stub):
@@ -137,6 +222,9 @@ def test_action_without_a_gateway_does_not_claim_success(stub):
     assert done["action_succeeded"] is False
     text = tokens_of(events).lower()
     assert "done" not in text and "created" not in text
+    action_steps = [payload for name, payload in events if name == "trajectory" and payload["id"] == "action"]
+    assert [step["state"] for step in action_steps] == ["active", "failed"]
+    assert done["trajectory"][-1]["id"] == "response"
 
 
 def test_unknown_api_path_returns_json_404_not_the_frontend():

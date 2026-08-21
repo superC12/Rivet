@@ -47,6 +47,7 @@ class ConversationStore:
             ).fetchall():
                 item = dict(message)
                 item["trace"] = json.loads(item.pop("trace_json") or "[]")
+                item["trajectory"] = json.loads(item.pop("trajectory_json") or "[]")
                 messages.append(item)
             conversation["messages"] = messages
             return conversation
@@ -79,8 +80,12 @@ class ConversationStore:
             "prompt_tokens": metadata.get("prompt_tokens"),
             "completion_tokens": metadata.get("completion_tokens"),
             "action_status": metadata.get("action_status"),
-            "trace_json": json.dumps(metadata.get("trace", [])),
+            "trajectory_json": json.dumps(metadata.get("trajectory", [])),
         }
+        # Existing callers can still write a legacy trace explicitly, while
+        # new chat runs keep one durable source of truth in trajectory_json.
+        if "trace" in metadata:
+            message["trace_json"] = json.dumps(metadata["trace"])
         columns = ", ".join(message)
         placeholders = ", ".join("?" for _ in message)
         with self.database.connect() as connection:
@@ -90,7 +95,8 @@ class ConversationStore:
             if role == "user" and count == 1:
                 title = " ".join(content.strip().split())[:52] or "New conversation"
                 connection.execute("UPDATE conversations SET title = ? WHERE id = ?", (title, conversation_id))
-        message["trace"] = json.loads(message.pop("trace_json"))
+        message["trace"] = json.loads(message.pop("trace_json", "[]") or "[]")
+        message["trajectory"] = json.loads(message.pop("trajectory_json"))
         return message
 
     def history(self, conversation_id: str, limit: int = 24) -> list[dict[str, str]]:

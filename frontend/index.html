@@ -21,7 +21,6 @@
   <link rel="stylesheet" href="/static/css/chat.css">
   <link rel="stylesheet" href="/static/css/motion.css">
   <link rel="stylesheet" href="/static/css/settings.css">
-  <link rel="stylesheet" href="/static/css/appearance-motion.css">
   <link rel="stylesheet" href="/static/css/tactile-effects.css">
   <link rel="stylesheet" href="/static/css/router-assistant.css">
 </head>
@@ -66,23 +65,50 @@
       </header>
 
       <section class="conversation" id="conversation" aria-live="polite" aria-label="Conversation">
-        <div class="empty-state" id="empty-state">
-          <button class="canvas-control" id="open-compute-overview" type="button">
-            <span class="canvas-control-icon" aria-hidden="true"><svg viewBox="0 0 18 18"><circle cx="4" cy="9" r="2"/><circle cx="14" cy="4" r="2"/><circle cx="14" cy="14" r="2"/><path d="M6 9h3m0 0 3.5-4M9 9l3.5 4"/></svg></span>
-            <span class="canvas-control-copy"><span>CONTROL PATH</span><strong id="canvas-summary">Inspecting available engines…</strong></span>
-            <span class="canvas-control-action">View compute <b>→</b></span>
-          </button>
-          <div class="action-triggers" id="action-triggers" aria-label="Developer action triggers"></div>
+        <nav class="run-view-tabs" id="run-view-tabs" aria-label="Run view" hidden>
+          <button type="button" data-run-view="chat" aria-selected="true">Chat</button>
+          <button type="button" data-run-view="trajectory" aria-selected="false">Trajectory <i aria-hidden="true"></i></button>
+        </nav>
+        <div class="chat-view" id="chat-view">
+          <div class="empty-state" id="empty-state">
+            <button class="canvas-control" id="open-compute-overview" type="button">
+              <span class="canvas-control-icon" aria-hidden="true"><svg viewBox="0 0 18 18"><circle cx="4" cy="9" r="2"/><circle cx="14" cy="4" r="2"/><circle cx="14" cy="14" r="2"/><path d="M6 9h3m0 0 3.5-4M9 9l3.5 4"/></svg></span>
+              <span class="canvas-control-copy"><span>CONTROL PATH</span><strong id="canvas-summary">Inspecting available engines…</strong></span>
+              <span class="canvas-control-action">View compute <b>→</b></span>
+            </button>
+            <div class="action-triggers" id="action-triggers" aria-label="Developer action triggers"></div>
+          </div>
+          <div class="messages" id="messages"></div>
         </div>
-        <div class="messages" id="messages"></div>
+        <section class="trajectory-view" id="trajectory-view" aria-label="AI execution trajectory" hidden>
+          <header class="trajectory-header">
+            <div><span>OBSERVABLE EXECUTION</span><h2>Trajectory</h2></div>
+            <label><span class="sr-only">Run</span><select id="trajectory-run-select" aria-label="Trajectory run"></select></label>
+          </header>
+          <div class="trajectory-summary" id="trajectory-summary"></div>
+          <div class="trajectory-metrics" id="trajectory-metrics" aria-label="Run metrics"></div>
+          <div class="trajectory-timeline" aria-label="Execution timing overview">
+            <div class="trajectory-lanes" aria-hidden="true"><span>Request</span><span>Response</span><span>Tools</span></div>
+            <div class="trajectory-timeline-track" id="trajectory-timeline-track"></div>
+          </div>
+          <div class="trajectory-body">
+            <div class="trajectory-graph" id="trajectory-graph" aria-label="Execution event ledger"></div>
+            <aside class="trajectory-inspector" id="trajectory-inspector" aria-label="Selected stage details"></aside>
+          </div>
+          <p class="trajectory-privacy">Observable routing and execution metadata only. Private model reasoning is never shown.</p>
+        </section>
       </section>
 
       <div class="composer-zone">
-        <div class="system-activity" id="system-activity" role="status"></div>
+        <div class="system-activity-row">
+          <div class="system-activity" id="system-activity" role="status"></div>
+          <button class="steer-button" id="steer-button" type="button" hidden data-tooltip="Redirect the response without starting a new conversation.">Steer</button>
+        </div>
         <form class="composer" id="composer">
           <textarea id="message-input" rows="1" maxlength="200000" aria-label="Message your assistant" placeholder="Describe a task or ask a question…"></textarea>
           <div class="composer-controls">
             <kbd class="composer-shortcut" id="composer-shortcut">Ctrl ↵</kbd>
+            <button class="thinking-toggle" id="thinking-toggle" type="button" aria-label="Thinking mode off" aria-pressed="false" data-tooltip="Thinking is off. Enable it to request deeper reasoning from compatible models." hidden><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M8.9 4.1A2.6 2.6 0 0 0 4.2 5.7a2.35 2.35 0 0 0-.35 4.1 2.55 2.55 0 0 0 2.25 3.85 2.45 2.45 0 0 0 2.8.35V4.1Zm.2 0a2.6 2.6 0 0 1 4.7 1.6 2.35 2.35 0 0 1 .35 4.1 2.55 2.55 0 0 1-2.25 3.85 2.45 2.45 0 0 1-2.8.35V4.1Z"/><path d="M6.1 6.2c1.1.05 1.75.7 1.75 1.65M5.45 10.1c1.35-.05 2.15.65 2.15 1.75m4.3-5.65c-1.1.05-1.75.7-1.75 1.65m2.4 2.25c-1.35-.05-2.15.65-2.15 1.75"/></svg></button>
             <div class="route-control" id="route-control">
               <select class="sr-only" id="route-mode" aria-label="Route selection"><option value="auto">Auto</option></select>
               <button class="route-trigger" id="route-trigger" type="button" aria-haspopup="menu" aria-expanded="false" data-tooltip="Choose an active execution route or link another provider."><span id="route-icon" aria-hidden="true"></span><span class="route-chevron">⌄</span></button>
@@ -312,10 +338,9 @@ Don't pretend actions succeeded.</textarea></label>
 
   <div class="context-tooltip" id="context-tooltip" role="tooltip" hidden></div>
   <template id="message-template">
-    <article class="message-pair"><div class="user-message"></div><div class="assistant-message"><div class="assistant-content"></div><button class="trace-toggle" hidden><i></i><span>Executed 0 steps</span><b>⌄</b></button><div class="trace-panel"></div><div class="telemetry"></div></div></article>
+    <article class="message-pair"><div class="user-message"></div><div class="assistant-message"><div class="assistant-content"></div><button class="trace-toggle" hidden><i></i><span>Trajectory</span><b>→</b></button><div class="telemetry"></div></div></article>
   </template>
   <script type="module" src="/static/js/app.js"></script>
-  <script type="module" src="/static/js/appearance-motion.js"></script>
   <script type="module" src="/static/js/tactile-effects.js"></script>
 </body>
 </html>

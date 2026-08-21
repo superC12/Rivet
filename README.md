@@ -325,7 +325,7 @@ by the host firewall.
 
 ## Releases
 
-CI runs on pushes and pull requests. Pushing a version tag such as `v2.0.0` runs the full test suite, creates `rivet.tar.gz` with a SHA-256 checksum, and publishes both files as a GitHub Release. The one-line installer prefers the checksum-verified release archive and falls back to the `main` branch before the first release exists.
+CI runs on pushes and pull requests. Pushing a version tag such as `v2.1.0` runs the full test suite, creates `rivet.tar.gz` with a SHA-256 checksum, and publishes both files as a GitHub Release. The one-line installer prefers the checksum-verified release archive and falls back to the `main` branch before the first release exists.
 
 ## Safe network access
 

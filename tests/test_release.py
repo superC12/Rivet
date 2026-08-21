@@ -253,3 +253,67 @@ def test_the_app_shell_constrains_its_row_so_the_conversation_scrolls():
     assert "overflow-y: auto" in next(
         line for line in layout.splitlines() if line.startswith(".conversation {")
     )
+
+
+def test_thinking_control_is_capability_driven_and_per_message():
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    chat = (ROOT / "frontend" / "js" / "chat.js").read_text(encoding="utf-8")
+    styles = (ROOT / "frontend" / "css" / "chat.css").read_text(encoding="utf-8")
+    backend = (ROOT / "backend" / "api" / "chat.py").read_text(encoding="utf-8")
+
+    assert 'id="thinking-toggle"' in markup
+    assert 'id="thinking-toggle"' in markup and 'hidden><svg viewBox="0 0 18 18"' in markup
+    assert ".thinking-toggle svg" in styles
+    assert '(model.capabilities || []).includes("thinking")' in chat
+    assert "this.thinking.hidden = !available" in chat
+    assert "thinking: this.thinkingEnabled" in chat
+    assert "thinking_for_model(" in backend
+    assert "selected model does not report support" in backend
+
+
+def test_steering_is_available_only_during_an_active_response():
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    chat = (ROOT / "frontend" / "js" / "chat.js").read_text(encoding="utf-8")
+
+    assert 'id="steer-button"' in markup
+    assert 'id="steer-button" type="button" hidden' in markup
+    assert "this.steerButton.hidden = false" in chat
+    assert "this.controller?.abort()" in chat
+    assert "if (active) await active" in chat
+    assert "this.input.value = instruction" in chat
+    assert "this.steerButton.hidden = true" in chat
+    assert "const pendingPairs = []" in chat
+    assert "pendingPairs.shift()" in chat
+
+
+def test_trajectory_is_a_live_reopenable_view_without_chain_of_thought():
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    chat = (ROOT / "frontend" / "js" / "chat.js").read_text(encoding="utf-8")
+    trajectory = (ROOT / "frontend" / "js" / "trajectory.js").read_text(encoding="utf-8")
+    backend = (ROOT / "backend" / "api" / "chat.py").read_text(encoding="utf-8")
+
+    assert 'data-run-view="chat"' in markup
+    assert 'data-run-view="trajectory"' in markup
+    assert 'id="trajectory-run-select"' in markup
+    assert 'id="trajectory-timeline-track"' in markup
+    assert 'id="trajectory-inspector"' in markup
+    assert 'id="trajectory-metrics"' in markup
+    assert '<button class="trace-toggle" hidden>' in markup
+    assert "Private model reasoning is never shown" in markup
+    assert 'trajectory: data => this.trajectory.record(pair, data)' in chat
+    assert "this.trajectory.restore(" in chat
+    assert "trajectory_event(trajectory" in backend
+    assert '"timestamp_ms"' in backend
+    assert '"trajectory": trajectory' in backend
+    assert 'kind": "retry"' in backend
+    assert 'kind": "tool"' in backend
+    assert "renderTimeline" in trajectory
+    assert "renderInspector" in trajectory
+    assert "durationLabel" in trajectory
+    assert "chain-of-thought" not in trajectory.lower()
+    assert 'toggle.querySelector("span").textContent = "View trajectory"' in (ROOT / "frontend" / "js" / "telemetry.js").read_text(encoding="utf-8")
+    assert "Trajectory · ${trace.length}" not in (ROOT / "frontend" / "js" / "telemetry.js").read_text(encoding="utf-8")
+    assert "routing_detail_payload" in backend
+    assert 'import "./appearance-motion.js"' in (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    assert '/static/js/appearance-motion.js' not in markup
+    assert '/static/css/appearance-motion.css' not in markup

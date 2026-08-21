@@ -130,7 +130,11 @@ async def _discover_models_uncached() -> list[dict]:
                     "name": item if isinstance(item, str) else item.get("name", item["id"]),
                     "provider": provider_id,
                     "node": provider.node,
-                    "capabilities": ["chat"],
+                    "capabilities": ["chat"] if isinstance(item, str) else sorted({"chat", *(
+                        str(value).lower()
+                        for value in item.get("capabilities", [])
+                        if isinstance(value, str)
+                    )}),
                 }
                 for item in configured
             )
@@ -141,7 +145,17 @@ async def _discover_models_uncached() -> list[dict]:
             # an OpenRouter target appears only after the owner names one.
             model_id = str(config.get("model", "")).strip()
             if model_id:
-                models.append({"id": model_id, "name": config.get("display_model", model_id), "provider": provider_id, "node": None, "capabilities": ["chat"]})
+                models.append({
+                    "id": model_id,
+                    "name": config.get("display_model", model_id),
+                    "provider": provider_id,
+                    "node": None,
+                    "capabilities": sorted({"chat", *(
+                        str(value).lower()
+                        for value in config.get("capabilities", [])
+                        if isinstance(value, str)
+                    )}),
+                })
             continue
         models.extend(await provider.list_models())
     return models

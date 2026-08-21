@@ -1,10 +1,12 @@
 import { Atmosphere } from "./atmosphere.js";
+import "./appearance-motion.js";
 import { AccentController } from "./accent.js";
 import { Chat } from "./chat.js";
 import { Onboarding } from "./onboarding.js";
 import { SettingsPanel } from "./settings.js";
 import { Sidebar } from "./sidebar.js";
 import { ContextTooltip } from "./tooltip.js";
+import { Trajectory } from "./trajectory.js";
 import { RouteControl, RuntimeDashboard } from "./runtime.js";
 
 async function api(path, options = {}) {
@@ -18,6 +20,7 @@ const app = document.querySelector("#app");
 const atmosphere = new Atmosphere(document.querySelector("#atmosphere"));
 const onboardingAtmosphere = new Atmosphere(document.querySelector("#onboarding-atmosphere"));
 const accent = new AccentController(document.querySelector("#accent-context"));
+const trajectory = new Trajectory();
 new ContextTooltip(document.querySelector("#context-tooltip"));
 
 function applyTheme(appearance) {
@@ -96,12 +99,13 @@ const routeControl = new RouteControl({
   onLinkProvider: () => settings.openManualConnection(),
   onConfigureRouter: () => settings.openRouterAssistant(),
 });
-const chat = new Chat({ atmosphere, accent, routeControl, onConversation: id => { sidebar.activeId = id; }, onComplete: id => loadConversations(id) });
+const chat = new Chat({ atmosphere, accent, routeControl, trajectory, onConversation: id => { sidebar.activeId = id; }, onComplete: id => loadConversations(id) });
 const runtime = new RuntimeDashboard({
   api,
   routeControl,
   onOpenSettings: section => settings.open(section),
   onPrompt: prompt => chat.primeInput(prompt),
+  onModels: models => chat.configureModels(models),
   atmosphere,
 });
 settings = new SettingsPanel({ api, onSave: config => { applyConfig(config); runtime.refresh(config); } });

@@ -26,7 +26,6 @@ export class SettingsPanel {
     this.dialog.querySelectorAll("[data-settings-section]").forEach(button => button.addEventListener("click", () => this.section(button.dataset.settingsSection)));
     document.querySelector("#save-settings").addEventListener("click", () => this.save());
     document.querySelector("#settings-intensity").addEventListener("input", event => document.querySelector("#intensity-output").value = `${Math.round(event.target.value)}`);
-    document.querySelector("#settings-speed").addEventListener("input", event => document.querySelector("#speed-output").value = `${Math.round(event.target.value)}`);
     this.accentPicker = document.querySelector("#settings-accent-picker");
     this.accentChannels = ["r", "g", "b"].map(channel => document.querySelector(`#settings-accent-${channel}`));
     this.accentPicker.addEventListener("input", event => this.setAccentColor(event.target.value));

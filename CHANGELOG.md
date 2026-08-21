@@ -8,6 +8,42 @@ Before 1.0.0, minor versions may change internal interfaces.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-20
+
+This one is mostly about making Rivet easier to steer and much easier to
+understand while it works.
+
+### Added
+
+- A live **Trajectory** view now follows each request from prompt to routing,
+  model or tool execution, retries, and the final response. You can swap
+  between Chat and Trajectory while it runs, inspect timings and dependencies,
+  and reopen the same run later. It shows observable system activity—not a
+  model's private chain-of-thought.
+- A small brain button in the composer lets you request Thinking per message.
+  It stays out of the way unless an available model actually says it supports
+  thinking, and Rivet still clamps the request when the selected model cannot.
+- A **Steer** control appears while a response is running, so you can redirect
+  the work without throwing away the conversation and starting over.
+
+### Changed
+
+- Trajectory is the single run ledger now. The useful routing explanations,
+  lifecycle stages, retries, tools, timing, and results all live together
+  instead of being split across two almost-the-same records.
+- The response link simply says **View trajectory**. Stage counts now live in
+  the view where they can stay honest instead of disagreeing with another
+  counter two inches away.
+- Cleaned up a few quiet bits of frontend duplication: atmosphere controls now
+  have one JavaScript owner, their styles live with Settings, and the repeated
+  DOM helper is shared.
+
+### Removed
+
+- Dropped the old, unverified Switchyard adapter. Rivet already has the two
+  routing paths that matter: the built-in policy router and the optional
+  model-assisted router. Keeping a third, unused path was just extra luggage.
+
 ## [2.0.0] - 2026-08-11
 
 ### Added
@@ -438,7 +474,8 @@ Initial release.
   `prefers-reduced-motion`.
 - Docker support.
 
-[Unreleased]: https://github.com/superC12/Rivet/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/superC12/Rivet/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/superC12/Rivet/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/superC12/Rivet/compare/v1.2.1...v2.0.0
 [1.2.1]: https://github.com/superC12/Rivet/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/superC12/Rivet/compare/v1.1.1...v1.2.0

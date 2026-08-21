@@ -49,7 +49,8 @@ class Database:
             prompt_tokens INTEGER,
             completion_tokens INTEGER,
             action_status TEXT,
-            trace_json TEXT
+            trace_json TEXT,
+            trajectory_json TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_messages_conversation
         ON messages(conversation_id, created_at);
@@ -77,6 +78,9 @@ class Database:
         """
         with self._lock, self.connect() as connection:
             connection.executescript(schema)
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(messages)").fetchall()}
+            if "trajectory_json" not in columns:
+                connection.execute("ALTER TABLE messages ADD COLUMN trajectory_json TEXT")
 
     def healthy(self) -> bool:
         try:

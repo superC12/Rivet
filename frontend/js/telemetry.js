@@ -1,4 +1,4 @@
-// Execution origin and trace rendering.
+// Execution origin and trajectory navigation.
 //
 // Kept out of chat.js because this is the one part of the interface that
 // is allowed to be technical, and it has its own rules: subdued type, no
@@ -44,35 +44,15 @@ export function renderTelemetry(element, metadata, nodeNames) {
   else element.removeAttribute("title");
 }
 
-export function renderTrace(toggle, panel, metadata) {
-  const trace = metadata.trace || [];
-  if (!trace.length) {
+export function renderTrace(toggle, metadata, onOpen, state = "complete") {
+  const hasTrajectory = Boolean(metadata.hasTrajectory || metadata.trajectory?.length || metadata.trace?.length);
+  if (!hasTrajectory) {
     toggle.hidden = true;
     return;
   }
   toggle.hidden = false;
-  toggle.querySelector("span").textContent = `Executed ${trace.length} step${trace.length === 1 ? "" : "s"}`;
-  toggle.setAttribute("aria-expanded", String(panel.classList.contains("open")));
-
-  panel.replaceChildren();
-  const title = document.createElement("div");
-  title.className = "trace-title";
-  title.textContent = `${metadata.route || "ROUTE"} ROUTE`;
-  panel.append(title);
-
-  trace.forEach(step => {
-    const row = document.createElement("div");
-    row.className = "trace-row";
-    const time = document.createElement("time");
-    time.textContent = step.time || "—";
-    const text = document.createElement("span");
-    text.textContent = step.message;
-    row.append(time, text);
-    panel.append(row);
-  });
-
-  toggle.onclick = () => {
-    const open = panel.classList.toggle("open");
-    toggle.setAttribute("aria-expanded", String(open));
-  };
+  toggle.querySelector("span").textContent = "View trajectory";
+  toggle.dataset.state = state;
+  toggle.setAttribute("aria-label", "Open the observable trajectory for this response");
+  toggle.onclick = onOpen;
 }

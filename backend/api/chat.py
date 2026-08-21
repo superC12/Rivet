@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from backend.actions import EXECUTED, NOT_CONFIGURED
 from backend.config import settings
 from backend.providers import ChatRequest, ProviderError
-from backend.routing import RoutingEngine, RoutingPolicy, tier_of, trace_step
+from backend.routing import RoutingEngine, RoutingPolicy, tier_of
 from backend.routing.policies import sort_candidates
 from .dependencies import action_gateway, discover_models, invalidate_model_cache, nodes, providers, store
 
@@ -26,6 +26,7 @@ class ChatPayload(BaseModel):
     message: str = Field(min_length=1, max_length=200_000)
     mode: str = "auto"
     model: str | None = None
+    thinking: bool | None = None
 
 
 def event(name: str, data: object) -> bytes:
@@ -39,6 +40,38 @@ def event(name: str, data: object) -> bytes:
     return f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n".encode()
 
 
+def trajectory_record(ledger: list[dict], payload: dict) -> dict:
+    """Append one observable transition to the durable run ledger."""
+    record = {**payload, "timestamp_ms": round(time.time() * 1000)}
+    ledger.append(record)
+    return record
+
+
+def trajectory_event(ledger: list[dict], payload: dict) -> bytes:
+    return event("trajectory", trajectory_record(ledger, payload))
+
+
+def routing_detail_payload(message: str, sequence: int) -> dict:
+    """Translate an internal router trace step into public run metadata."""
+    value = message.lower()
+    if any(token in value for token in ("fallback", "retry", "unavailable", "offline", "did not respond")):
+        kind, label = "retry", "Recovery path"
+    elif any(token in value for token in ("n8n", "workflow", "wake", "action", "tool", "search")):
+        kind, label = "tool", "Tool / action"
+    elif any(token in value for token in ("model", "selected", "affinity", "thinking")):
+        kind, label = "model", "Model decision"
+    else:
+        kind, label = "route", "Route decision"
+    return {
+        "id": f"routing-detail-{sequence}",
+        "label": label,
+        "kind": kind,
+        "state": "complete",
+        "detail": message,
+        "parent": "routing",
+    }
+
+
 @router.post("/chat")
 async def chat(payload: ChatPayload) -> StreamingResponse:
     conversation = store.get(payload.conversation_id) if payload.conversation_id else None
@@ -50,6 +83,19 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
 
     async def stream() -> AsyncIterator[bytes]:
         started = time.perf_counter()
+        trajectory: list[dict] = []
+        yield event("conversation", {"id": conversation_id})
+        yield trajectory_event(trajectory, {
+            "id": "prompt", "label": "Prompt", "kind": "prompt", "state": "complete",
+            "detail": "Request accepted by Rivet", "duration_ms": 0,
+            "input": {"characters": len(payload.message)},
+        })
+        yield trajectory_event(trajectory, {
+            "id": "routing", "label": "Routing", "kind": "route", "state": "active",
+            "detail": "Discovering eligible models and applying route policy",
+            "parent": "prompt",
+        })
+        routing_started = time.perf_counter()
         available_models = await discover_models()
         provider_instances = providers()
 
@@ -71,40 +117,80 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
             model_router_ask=ask_routing_model,
         )
         decision = await engine.decide(payload.message, payload.mode, payload.model, affinity)
-        yield event("conversation", {"id": conversation_id})
+        decision.thinking = thinking_for_model(
+            available_models, decision.provider, decision.model, payload.thinking, decision.thinking
+        )
+        if payload.thinking is not None and decision.provider and decision.model:
+            if payload.thinking and decision.thinking:
+                decision.step("Thinking → on (manual)")
+            elif payload.thinking:
+                decision.step("Thinking requested → selected model does not report support")
+            else:
+                decision.step("Thinking → off (manual)")
+        yield trajectory_event(trajectory, {
+            "id": "routing", "label": "Routing", "kind": "route", "state": "complete",
+            "detail": f"{decision.route} · {decision.reason}",
+            "duration_ms": round((time.perf_counter() - routing_started) * 1000),
+            "parent": "prompt",
+            "output": {
+                "route": decision.route, "provider": decision.provider, "model": decision.model,
+                "confidence": decision.confidence,
+            },
+        })
+        for sequence, step in enumerate(decision.trace, start=1):
+            yield trajectory_event(
+                trajectory,
+                routing_detail_payload(str(step.get("message", "Routing decision")), sequence),
+            )
         yield event("route", {
             "route": decision.route, "confidence": decision.confidence, "reason": decision.reason,
             "provider": decision.provider, "model": decision.model, "node": decision.node,
-            "lane": decision.lane, "thinking": decision.thinking, "trace": decision.trace,
+            "lane": decision.lane, "thinking": decision.thinking,
         })
 
         if decision.route == "ACTION":
-            async for chunk in run_action(conversation_id, request_id, payload.message, decision, started):
+            async for chunk in run_action(conversation_id, request_id, payload.message, decision, started, trajectory):
                 yield chunk
             return
 
         if decision.route == "ERROR" or not decision.provider or not decision.model:
             text = f"I couldn't get a model to answer. {decision.reason}"
-            store.add_message(conversation_id, "assistant", text, route="ERROR", trace=decision.trace)
-            yield event("error", {"message": text, "trace": decision.trace})
+            yield trajectory_event(trajectory, {
+                "id": "response", "label": "Response", "kind": "response", "state": "failed",
+                "detail": decision.reason,
+                "parent": "routing",
+            })
+            store.add_message(
+                conversation_id, "assistant", text, route="ERROR",
+                trajectory=trajectory,
+            )
+            yield event("error", {"message": text, "trajectory": trajectory})
             return
 
         if decision.provider not in provider_instances:
-            yield event("error", {"message": "The selected provider is not configured.", "trace": decision.trace})
+            yield trajectory_event(trajectory, {
+                "id": "response", "label": "Response", "kind": "response", "state": "failed",
+                "detail": "Selected provider is not configured", "parent": "routing",
+            })
+            yield event("error", {"message": "The selected provider is not configured.", "trajectory": trajectory})
             return
 
         if decision.node and not await nodes().reachable(decision.node):
             node_config = settings.rivet.get("nodes", {}).get(decision.node, {})
             display = node_config.get("display_name", decision.node)
             decision.step(f"{display} offline")
+            yield trajectory_event(trajectory, routing_detail_payload(f"{display} offline", len(trajectory)))
             if node_config.get("wake_on_lan", {}).get("enabled"):
                 decision.step("Wake packet sent")
+                yield trajectory_event(trajectory, routing_detail_payload("Wake packet sent", len(trajectory)))
                 yield event("status", {"state": "waking", "message": f"Waking {display}..."})
                 if await nodes().wake_and_wait(decision.node):
                     decision.step(f"{display} reachable")
+                    yield trajectory_event(trajectory, routing_detail_payload(f"{display} reachable", len(trajectory)))
                     invalidate_model_cache()
                 else:
                     decision.step(f"{display} did not respond")
+                    yield trajectory_event(trajectory, routing_detail_payload(f"{display} did not respond", len(trajectory)))
 
         system_message = {"role": "system", "content": settings.assistant["assistant"]["instructions"]}
         messages = [system_message, *store.history(conversation_id)]
@@ -113,13 +199,28 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
         actual_model = decision.model
         actual_route = decision.route
         actual_node = decision.node
+        actual_thinking = decision.thinking
         completed = False
+        execution_started = time.perf_counter()
+        response_started = False
+        yield trajectory_event(trajectory, {
+            "id": "execution", "label": "Model execution", "kind": "model", "state": "active",
+            "detail": f"{actual_provider} · {actual_model}" + (" · thinking on" if actual_thinking else ""),
+            "parent": "routing",
+            "input": {"provider": actual_provider, "model": actual_model, "thinking": bool(actual_thinking)},
+        })
 
         try:
             try:
                 async for token in provider_instances[actual_provider].chat(
-                    ChatRequest(messages=messages, model=actual_model, think=decision.thinking)
+                    ChatRequest(messages=messages, model=actual_model, think=actual_thinking)
                 ):
+                    if not response_started:
+                        response_started = True
+                        yield trajectory_event(trajectory, {
+                            "id": "response", "label": "Response stream", "kind": "response", "state": "active",
+                            "detail": "Receiving model output", "parent": "execution",
+                        })
                     full_text += token
                     yield event("token", token)
                 completed = True
@@ -132,12 +233,21 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
                         "request=%s route=%s provider=%s error=%s",
                         request_id, actual_route, actual_provider, type(exc).__name__,
                     )
-                    yield event("error", {"message": "The selected model stopped responding.", "trace": decision.trace})
+                    yield trajectory_event(trajectory, {
+                        "id": "execution", "label": "Model execution", "kind": "model", "state": "failed",
+                        "detail": "Selected model stopped responding", "parent": "routing",
+                    })
+                    yield event("error", {"message": "The selected model stopped responding.", "trajectory": trajectory})
                     return  # `finally` keeps whatever text arrived first
 
                 fallback_id, fallback_model, fallback_tier = fallback
                 yield event("notice", "The first model stopped responding. I switched to the configured fallback.")
                 decision.step(f"Fallback → {fallback_id}")
+                yield trajectory_event(trajectory, {
+                    "id": "fallback", "label": "Fallback", "kind": "retry", "state": "active",
+                    "detail": f"Retrying through {fallback_id} · {fallback_model['id']}", "parent": "execution",
+                    "input": {"provider": fallback_id, "model": fallback_model["id"]},
+                })
                 # The partial text came from a model that failed mid-answer.
                 # Both sides have to forget it, or the browser splices the
                 # abandoned fragment onto the front of the real answer.
@@ -147,34 +257,70 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
                 actual_model = fallback_model["id"]
                 actual_node = fallback_model.get("node")
                 actual_route = fallback_tier
+                actual_thinking = thinking_for_model(
+                    available_models, actual_provider, actual_model, payload.thinking, decision.thinking
+                )
                 try:
                     async for token in provider_instances[actual_provider].chat(
-                        ChatRequest(messages=messages, model=actual_model, think=decision.thinking)
+                        ChatRequest(messages=messages, model=actual_model, think=actual_thinking)
                     ):
+                        if not response_started:
+                            response_started = True
+                            yield trajectory_event(trajectory, {
+                                "id": "response", "label": "Response stream", "kind": "response", "state": "active",
+                                "detail": "Receiving fallback model output", "parent": "fallback",
+                            })
                         full_text += token
                         yield event("token", token)
                     completed = True
+                    yield trajectory_event(trajectory, {
+                        "id": "fallback", "label": "Fallback", "kind": "retry", "state": "complete",
+                        "detail": f"Completed through {fallback_id} · {fallback_model['id']}", "parent": "execution",
+                        "output": {"provider": fallback_id, "model": fallback_model["id"]},
+                    })
                 except ProviderError as fallback_exc:
                     logger.warning(
                         "request=%s route=%s provider=%s error=%s",
                         request_id, actual_route, actual_provider, type(fallback_exc).__name__,
                     )
-                    yield event("error", {"message": "I couldn't get a model to answer.", "trace": decision.trace})
+                    yield event("error", {"message": "I couldn't get a model to answer.", "trajectory": trajectory})
                     return  # `finally` keeps whatever text arrived first
         finally:
             # A closed browser tab throws GeneratorExit through here. The
             # tokens already generated were paid for either way, so they
             # are kept rather than silently discarded.
             if not completed and full_text:
-                store_partial(conversation_id, full_text, decision, actual_provider, actual_model, started)
+                trajectory_record(trajectory, {
+                    "id": "response", "label": "Response stream", "kind": "response", "state": "stopped",
+                    "detail": "Response interrupted before completion", "parent": "execution",
+                })
+                store_partial(
+                    conversation_id, full_text, decision, actual_provider, actual_model, started, trajectory
+                )
 
         usage = provider_instances[actual_provider].usage or {}
         latency = round((time.perf_counter() - started) * 1000)
+        yield trajectory_event(trajectory, {
+            "id": "execution", "label": "Model execution", "kind": "model", "state": "complete",
+            "detail": f"{actual_provider} · {actual_model}",
+            "duration_ms": round((time.perf_counter() - execution_started) * 1000),
+            "parent": "routing",
+            "output": {"provider": actual_provider, "model": actual_model},
+        })
+        yield trajectory_event(trajectory, {
+            "id": "response", "label": "Response stream", "kind": "response", "state": "complete",
+            "detail": "Response delivered", "duration_ms": latency, "parent": "execution",
+            "output": {
+                "prompt_tokens": usage.get("prompt_tokens"),
+                "completion_tokens": usage.get("completion_tokens"),
+            },
+        })
         metadata = {
             "route": actual_route, "provider": actual_provider, "model": actual_model, "node": actual_node,
-            "thinking": decision.thinking,
-            "latency_ms": latency, "trace": decision.trace,
+            "thinking": actual_thinking,
+            "latency_ms": latency,
             "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
+            "trajectory": trajectory,
         }
         store.add_message(conversation_id, "assistant", full_text, **metadata)
         if settings.rivet["router"].get("session_affinity", True):
@@ -192,9 +338,21 @@ async def chat(payload: ChatPayload) -> StreamingResponse:
     )
 
 
-async def run_action(conversation_id: str, request_id: str, text: str, decision, started: float) -> AsyncIterator[bytes]:
+async def run_action(
+    conversation_id: str,
+    request_id: str,
+    text: str,
+    decision,
+    started: float,
+    trajectory: list[dict],
+) -> AsyncIterator[bytes]:
     """Execute an action and report exactly what the gateway confirmed."""
     gateway = action_gateway()
+    yield trajectory_event(trajectory, {
+        "id": "action", "label": "Action gateway", "kind": "tool", "state": "active",
+        "detail": "Waiting for explicit gateway confirmation", "parent": "routing",
+        "input": {"gateway": "n8n"},
+    })
     if gateway.enabled:
         yield event("status", {"state": "routing", "message": "Running that through your action gateway…"})
 
@@ -213,15 +371,26 @@ async def run_action(conversation_id: str, request_id: str, text: str, decision,
         if result.workflow:
             decision.step(f"Workflow → {result.workflow}")
 
-    metadata = {
-        "route": "ACTION",
-        "latency_ms": round((time.perf_counter() - started) * 1000),
-        "action_status": result.status,
-        "trace": decision.trace,
-    }
-    store.add_message(conversation_id, "assistant", result.message, **metadata)
+    latency = round((time.perf_counter() - started) * 1000)
     logger.info("request=%s route=ACTION action_status=%s", request_id, result.status)
     yield event("token", result.message)
+    yield trajectory_event(trajectory, {
+        "id": "action", "label": "Action gateway", "kind": "tool",
+        "state": "complete" if result.status == EXECUTED else "failed",
+        "detail": f"n8n · {result.status}", "duration_ms": latency, "parent": "routing",
+        "output": {"status": result.status, "workflow": result.workflow},
+    })
+    yield trajectory_event(trajectory, {
+        "id": "response", "label": "Response", "kind": "response", "state": "complete",
+        "detail": "Gateway result reported", "duration_ms": latency, "parent": "action",
+    })
+    metadata = {
+        "route": "ACTION",
+        "latency_ms": latency,
+        "action_status": result.status,
+        "trajectory": trajectory,
+    }
+    store.add_message(conversation_id, "assistant", result.message, **metadata)
     yield event("done", {**metadata, "conversation_id": conversation_id, "action_succeeded": result.status == EXECUTED})
 
 
@@ -255,7 +424,41 @@ def choose_fallback(
     return None
 
 
-def store_partial(conversation_id: str, text: str, decision, provider: str | None, model: str | None, started: float) -> None:
+def thinking_for_model(
+    available_models: list[dict],
+    provider: str | None,
+    model: str | None,
+    override: bool | None,
+    routed: bool | str | None,
+) -> bool | str | None:
+    """Resolve a thinking request against the selected model's capabilities.
+
+    The composer is an explicit per-message override. API callers that omit it
+    retain the router's automatic decision. Either path is clamped to models
+    that actually advertise thinking support, so a generic provider is never
+    sent a model-specific option merely because a user pressed the button.
+    """
+    selected = next(
+        (
+            item for item in available_models
+            if item.get("provider") == provider and item.get("id") == model
+        ),
+        None,
+    )
+    supports_thinking = bool(selected and "thinking" in selected.get("capabilities", []))
+    requested = routed if override is None else override
+    return requested if supports_thinking else False
+
+
+def store_partial(
+    conversation_id: str,
+    text: str,
+    decision,
+    provider: str | None,
+    model: str | None,
+    started: float,
+    trajectory: list[dict],
+) -> None:
     if not text:
         return
     store.add_message(
@@ -267,5 +470,5 @@ def store_partial(conversation_id: str, text: str, decision, provider: str | Non
         model=model,
         node=decision.node,
         latency_ms=round((time.perf_counter() - started) * 1000),
-        trace=[*decision.trace, trace_step("Response ended early")],
+        trajectory=trajectory,
     )

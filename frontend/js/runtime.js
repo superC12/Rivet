@@ -1,3 +1,5 @@
+import { create } from "./dom.js";
+
 const ICONS = {
   auto: '<svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="4" cy="9" r="2"/><circle cx="14" cy="4" r="2"/><circle cx="14" cy="14" r="2"/><path d="M6 9h3m0 0 3.5-4M9 9l3.5 4"/></svg>',
   local: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="3.5" width="13" height="11" rx="2"/><path d="m5.5 7 2 2-2 2M9 11h3.5"/></svg>',
@@ -22,13 +24,6 @@ function providerLabel(provider) {
   if (provider.type === "openai_compatible" && kind === "remote") return "Remote API";
   return { openrouter: "Cloud", openai_compatible: "API" }[provider.type] || provider.id;
 }
-function create(tag, className, text) {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (text != null) element.textContent = text;
-  return element;
-}
-
 export class RouteControl {
   constructor({ select, trigger, menu, onLinkProvider, onConfigureRouter }) {
     this.select = select;
@@ -87,6 +82,7 @@ export class RouteControl {
     this.renderMenu();
     this.renderTrigger();
     document.querySelector("#composer-shortcut").hidden = !entries.length;
+    document.dispatchEvent(new CustomEvent("rivet:route-changed"));
   }
 
   selection() {
@@ -101,6 +97,7 @@ export class RouteControl {
     this.renderMenu();
     this.renderTrigger();
     this.close();
+    document.dispatchEvent(new CustomEvent("rivet:route-changed"));
   }
 
   chooseProvider(providerId) {
@@ -175,11 +172,12 @@ export class RouteControl {
 }
 
 export class RuntimeDashboard {
-  constructor({ api, routeControl, onOpenSettings, onPrompt, atmosphere }) {
+  constructor({ api, routeControl, onOpenSettings, onPrompt, onModels, atmosphere }) {
     this.api = api;
     this.routeControl = routeControl;
     this.onOpenSettings = onOpenSettings;
     this.onPrompt = onPrompt;
+    this.onModels = onModels;
     this.atmosphere = atmosphere;
     this.instanceName = "Your assistant";
     this.config = null;
@@ -203,6 +201,7 @@ export class RuntimeDashboard {
       const [status, models, roundTrip] = await Promise.all([this.api("/api/status"), this.api("/api/models"), ping]);
       this.data = { status, models, roundTrip };
       this.routeControl.configure(models, status.providers || [], config?.router || {});
+      this.onModels?.(this.routeControl.models);
       this.renderMatrix();
       this.renderDiagnostics();
       this.setConnection(status.status === "ok" ? "Connected" : "Degraded", status.status === "ok");
@@ -214,6 +213,7 @@ export class RuntimeDashboard {
     } catch (error) {
       this.data = null;
       this.routeControl.configure([], [], config?.router || {});
+      this.onModels?.([]);
       this.renderUnavailable(error);
       this.setConnection("Offline", false);
       document.dispatchEvent(new CustomEvent("rivet:connection-health", { detail: { state: "offline", latency: null } }));

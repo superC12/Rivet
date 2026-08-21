@@ -4,6 +4,7 @@
 // holds user-authored prompts and a model's raw reply, and both end up
 // on screen — neither is markup.
 
+import { create } from "./dom.js";
 import { consumeEventStream } from "./stream.js";
 
 // Each kind gets its own mark and phrasing so the two are told apart at
@@ -23,13 +24,6 @@ const KIND = {
 
 function kindOf(kind) {
   return KIND[kind] || { label: kind, short: kind, question: "" };
-}
-
-function create(tag, className, text) {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (text != null) element.textContent = text;
-  return element;
 }
 
 function field(labelText, control, hint) {

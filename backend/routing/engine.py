@@ -8,9 +8,9 @@
                    + provider + model + node
 
 The engine owns the wiring and nothing else. Classification lives in
-`classifier.py`, the constraints in `policies.py`, selection in
-`builtin.py`, and the optional external strategy in
-`switchyard_adapter.py`.
+`classifier.py`, the constraints in `policies.py`, and selection in
+`builtin.py`. Optional AI-assisted selection lives in `model_router.py`
+and remains advisory to the same hard policy.
 
 `decide()` is async because classification may call a model. `select()`
 is synchronous and takes a `Classification` directly, which is what
@@ -24,7 +24,6 @@ from .decision import RouteDecision, trace_step
 from .model_router import AskModel, OptionalModelRouter, RoutingAdvice
 from .policies import RoutingPolicy, tier_of
 from .builtin import BuiltInRouter
-from .switchyard_adapter import SwitchyardRouter
 
 __all__ = ["RouteDecision", "RoutingEngine", "trace_step"]
 
@@ -67,13 +66,7 @@ class RoutingEngine:
         self.model_router = OptionalModelRouter(
             router_config.get("routing_model", {}), self.nodes, self.policy, model_router_ask
         )
-        self.engine_name = str(router_config.get("engine", "builtin")).lower()
-        if self.engine_name == "switchyard":
-            self.router: BuiltInRouter | SwitchyardRouter = SwitchyardRouter(
-                self.policy, self.nodes, router_config.get("switchyard", {})
-            )
-        else:
-            self.router = BuiltInRouter(self.policy, self.nodes)
+        self.router = BuiltInRouter(self.policy, self.nodes)
 
     async def decide(
         self,
@@ -112,8 +105,6 @@ class RoutingEngine:
         affinity: tuple[str | None, str | None] = (None, None),
     ) -> RouteDecision:
         """Synchronous selection for a classification you already have."""
-        if isinstance(self.router, SwitchyardRouter):
-            raise RuntimeError("The Switchyard router is async; use decide() instead")
         return self.router.select(classification, self.models, mode, model_override, affinity)
 
     async def _select(
@@ -123,8 +114,6 @@ class RoutingEngine:
         model_override: str | None,
         affinity: tuple[str | None, str | None],
     ) -> RouteDecision:
-        if isinstance(self.router, SwitchyardRouter):
-            return await self.router.select(classification, self.models, mode, model_override, affinity)
         return self.router.select(classification, self.models, mode, model_override, affinity)
 
     def _advised_decision(self, classification: Classification, advice: RoutingAdvice) -> RouteDecision:
